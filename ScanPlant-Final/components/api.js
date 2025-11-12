@@ -1,0 +1,539 @@
+import AsyncStorage from '@react-native-async-storage/async-storage';
+import { Platform } from 'react-native';
+import { API_CONFIG } from './apiConfig';
+
+// URL da API configurada centralmente
+const API_URL = API_CONFIG.BASE_URL;
+
+console.log(`🌐 API URL configurada: ${API_URL} (Platform: ${Platform.OS})`);
+console.log(`⏱️ Timeout configurado: ${API_CONFIG.TIMEOUT}ms`);
+
+
+// Token storage
+const TOKEN_KEY = '@scanplant_token';
+
+// Salvar token
+export const saveToken = async (token) => {
+  try {
+    await AsyncStorage.setItem(TOKEN_KEY, token);
+  } catch (error) {
+    console.error('Erro ao salvar token:', error);
+  }
+};
+
+// Obter token
+export const getToken = async () => {
+  try {
+    return await AsyncStorage.getItem(TOKEN_KEY);
+  } catch (error) {
+    console.error('Erro ao obter token:', error);
+    return null;
+  }
+};
+
+// Remover token
+export const removeToken = async () => {
+  try {
+    await AsyncStorage.removeItem(TOKEN_KEY);
+  } catch (error) {
+    console.error('Erro ao remover token:', error);
+  }
+};
+
+// Fazer requisição autenticada
+const apiRequest = async (endpoint, options = {}) => {
+  const token = await getToken();
+  
+  const headers = {
+    'Content-Type': 'application/json',
+    ...options.headers,
+  };
+
+  if (token) {
+    headers['Authorization'] = `Bearer ${token}`;
+  }
+
+  try {
+    const fullUrl = `${API_URL}${endpoint}`;
+    console.log(`📡 Fazendo requisição para: ${fullUrl}`);
+    console.log(`📦 Método: ${options.method || 'GET'}`);
+    
+    const response = await fetch(fullUrl, {
+      ...options,
+      headers,
+    });
+
+    console.log(`✅ Resposta recebida - Status: ${response.status}`);
+    
+    const data = await response.json();
+
+    if (!response.ok) {
+      console.error('❌ Erro na resposta:', data);
+      throw new Error(data.message || 'Erro na requisição');
+    }
+
+    return { data, error: null };
+  } catch (error) {
+    console.error('❌ API Error:', error);
+    console.error('❌ Detalhes do erro:', error.message);
+    return { data: null, error };
+  }
+};
+
+// ==================== AUTENTICAÇÃO ====================
+
+export const auth = {
+  // Registrar
+  signUp: async (email, password, name = '') => {
+    const { data, error } = await apiRequest('/auth/register', {
+      method: 'POST',
+      body: JSON.stringify({ email, password, name }),
+    });
+
+    if (data?.token) {
+      await saveToken(data.token);
+    }
+
+    return { data, error };
+  },
+
+  // Login
+  signIn: async (email, password) => {
+    const { data, error } = await apiRequest('/auth/login', {
+      method: 'POST',
+      body: JSON.stringify({ email, password }),
+    });
+
+    if (data?.token) {
+      await saveToken(data.token);
+    }
+
+    return { data, error };
+  },
+
+  // Logout
+  signOut: async () => {
+    await removeToken();
+    return { error: null };
+  },
+
+  // Obter usuário atual
+  getCurrentUser: async () => {
+    const token = await getToken();
+    if (!token) {
+      return { data: null, error: { message: 'Não autenticado' } };
+    }
+
+    const { data, error } = await apiRequest('/auth/me', {
+      method: 'GET',
+    });
+
+    return { data: { user: data }, error };
+  },
+
+  // Atualizar perfil
+  updateProfile: async (profileData) => {
+    // Converter snake_case para PascalCase
+    const pascalData = {
+      Name: profileData.name,
+      Phone: profileData.phone,
+      Bio: profileData.bio,
+      AvatarUrl: profileData.avatar_url,
+      ExperienceLevel: profileData.experience_level,
+      PlantPreference: profileData.plant_preference,
+      City: profileData.city,
+    };
+
+    const response = await apiRequest('/auth/profile', {
+      method: 'PUT',
+      body: JSON.stringify(pascalData),
+    });
+
+    // Converter resposta de volta para snake_case
+    if (response.data) {
+      const user = response.data;
+      response.data = [{
+        id: user.id,
+        email: user.email,
+        name: user.name,
+        phone: user.phone,
+        bio: user.bio,
+        avatar_url: user.avatarUrl,
+        experience_level: user.experienceLevel,
+        plant_preference: user.plantPreference,
+        city: user.city,
+        created_at: user.createdAt,
+        updated_at: user.updatedAt
+      }];
+    }
+
+    return response;
+  },
+
+  // Listar usuários
+  getUsers: async () => {
+    return await apiRequest('/auth/users', {
+      method: 'GET',
+    });
+  },
+};
+
+// ==================== PLANTAS ====================
+
+export const database = {
+  // Inserir planta
+  insert: async (table, data) => {
+    if (table !== 'plants') {
+      return { data: null, error: { message: 'Tabela não suportada' } };
+    }
+
+    // Converter snake_case para PascalCase para a API C#
+    const plantData = {
+      ScientificName: data.scientific_name,
+      CommonName: data.common_name,
+      Family: data.family,
+      Genus: data.genus,
+      WikiDescription: data.wiki_description,
+      CareInstructions: data.care_instructions,
+      ImageData: data.image_data,
+      Latitude: data.latitude,
+      Longitude: data.longitude,
+      City: data.city,
+      LocationName: data.location_name,
+      WateringFrequencyDays: data.watering_frequency_days,
+      WateringFrequencyText: data.watering_frequency_text,
+      ReminderEnabled: data.reminder_enabled || false,
+      Notes: data.notes,
+    };
+
+    const response = await apiRequest('/plants', {
+      method: 'POST',
+      body: JSON.stringify(plantData),
+    });
+
+    // Converter a resposta de volta para snake_case
+    if (response.data) {
+      const plant = response.data;
+      response.data = [{
+        id: plant.id,
+        scientific_name: plant.scientificName,
+        common_name: plant.commonName,
+        family: plant.family,
+        genus: plant.genus,
+        wiki_description: plant.wikiDescription,
+        care_instructions: plant.careInstructions,
+        image_data: plant.imageData,
+        latitude: plant.latitude,
+        longitude: plant.longitude,
+        city: plant.city,
+        location_name: plant.locationName,
+        watering_frequency_days: plant.wateringFrequencyDays,
+        watering_frequency_text: plant.wateringFrequencyText,
+        reminder_enabled: plant.reminderEnabled,
+        notes: plant.notes,
+        user_id: plant.userId,
+        created_at: plant.createdAt,
+      }];
+    }
+
+    return response;
+  },
+
+  // Buscar plantas
+  select: async (table, columns = '*', filters = {}) => {
+    if (table === 'plants') {
+      const userId = filters.user_id || filters.eq?.user_id;
+      let endpoint = '/plants';
+
+      if (userId === 'current') {
+        endpoint = '/plants/my';
+      } else if (userId) {
+        endpoint = `/plants/user/${userId}`;
+      }
+
+      const response = await apiRequest(endpoint, {
+        method: 'GET',
+      });
+
+      // Converter PascalCase para snake_case
+      if (response.data && Array.isArray(response.data)) {
+        response.data = response.data.map(plant => {
+          console.log('🔍 Plant do backend:', plant.commonName);
+          console.log('   WikiDescription existe?', !!plant.wikiDescription);
+          console.log('   CareInstructions existe?', !!plant.careInstructions);
+          
+          return {
+            id: plant.id,
+            scientific_name: plant.scientificName,
+            common_name: plant.commonName,
+            family: plant.family,
+            genus: plant.genus,
+            wiki_description: plant.wikiDescription,
+            care_instructions: plant.careInstructions,
+            image_data: plant.imageData,
+            latitude: plant.latitude,
+            longitude: plant.longitude,
+            city: plant.city,
+            location_name: plant.locationName,
+            watering_frequency_days: plant.wateringFrequencyDays,
+            watering_frequency_text: plant.wateringFrequencyText,
+            reminder_enabled: plant.reminderEnabled,
+            notes: plant.notes,
+            user_id: plant.userId,
+            created_at: plant.createdAt,
+          };
+        });
+      }
+
+      return response;
+    } else if (table === 'profiles') {
+      // Para perfis de usuário
+      const userId = filters.id || filters.eq?.id;
+      if (userId) {
+        const response = await apiRequest(`/auth/users/${userId}`, {
+          method: 'GET',
+        });
+        
+        // Converter PascalCase para snake_case
+        if (response.data) {
+          const user = response.data;
+          response.data = {
+            id: user.id,
+            email: user.email,
+            name: user.name,
+            phone: user.phone,
+            bio: user.bio,
+            avatar_url: user.avatarUrl,
+            experience_level: user.experienceLevel,
+            plant_preference: user.plantPreference,
+            city: user.city,
+            created_at: user.createdAt,
+            updated_at: user.updatedAt
+          };
+        }
+        
+        return response;
+      } else {
+        return await apiRequest('/auth/users', {
+          method: 'GET',
+        });
+      }
+    }
+    
+    return { data: null, error: { message: 'Tabela não suportada' } };
+  },
+
+  // Atualizar planta
+  update: async (table, data, filters) => {
+    if (table !== 'plants') {
+      return { data: null, error: { message: 'Tabela não suportada' } };
+    }
+
+    const plantId = filters.id || filters.eq?.id;
+    if (!plantId) {
+      return { data: null, error: { message: 'ID da planta não fornecido' } };
+    }
+
+    return await apiRequest(`/plants/${plantId}`, {
+      method: 'PUT',
+      body: JSON.stringify(data),
+    });
+  },
+
+  // Deletar planta
+  delete: async (table, filters) => {
+    if (table !== 'plants') {
+      return { data: null, error: { message: 'Tabela não suportada' } };
+    }
+
+    const plantId = filters.id || filters.eq?.id;
+    if (!plantId) {
+      return { data: null, error: { message: 'ID da planta não fornecido' } };
+    }
+
+    return await apiRequest(`/plants/${plantId}`, {
+      method: 'DELETE',
+    });
+  },
+};
+
+// ==================== CHATS ====================
+
+export const chats = {
+  // Criar ou obter chat
+  createOrGet: async (otherUserId) => {
+    return await apiRequest('/chats', {
+      method: 'POST',
+      body: JSON.stringify({ otherUserId }),
+    });
+  },
+
+  // Listar chats
+  list: async () => {
+    return await apiRequest('/chats', {
+      method: 'GET',
+    });
+  },
+
+  // Obter chat por ID
+  get: async (chatId) => {
+    return await apiRequest(`/chats/${chatId}`, {
+      method: 'GET',
+    });
+  },
+
+  // Marcar como lido
+  markAsRead: async (chatId) => {
+    return await apiRequest(`/chats/${chatId}/read`, {
+      method: 'PUT',
+    });
+  },
+};
+
+// ==================== MENSAGENS ====================
+
+export const messages = {
+  // Enviar mensagem
+  send: async (chatId, content) => {
+    return await apiRequest('/messages', {
+      method: 'POST',
+      body: JSON.stringify({ chatId, content }),
+    });
+  },
+
+  // Listar mensagens do chat
+  list: async (chatId) => {
+    return await apiRequest(`/messages/chat/${chatId}`, {
+      method: 'GET',
+    });
+  },
+
+  // Marcar como lida
+  markAsRead: async (messageId) => {
+    return await apiRequest(`/messages/${messageId}/read`, {
+      method: 'PUT',
+    });
+  },
+
+  // Contador de não lidas
+  unreadCount: async () => {
+    return await apiRequest('/messages/unread/count', {
+      method: 'GET',
+    });
+  },
+};
+
+// Exportação compatível com Supabase
+export const supabase = {
+  auth,
+  from: (table) => ({
+    insert: (data) => database.insert(table, data),
+    select: (columns = '*') => ({
+      eq: (field, value) => ({
+        order: (orderField, options) => ({
+          then: async (resolve, reject) => {
+            try {
+              const result = await database.select(table, columns, { [field]: value });
+              resolve(result);
+            } catch (error) {
+              reject(error);
+            }
+          }
+        }),
+        single: async () => {
+          const result = await database.select(table, columns, { [field]: value });
+          // Se já é um objeto único (profiles), retornar como está
+          // Se é array, pegar o primeiro elemento
+          const singleData = Array.isArray(result.data) ? result.data?.[0] : result.data;
+          return { ...result, data: singleData || null };
+        },
+        // Para compatibilidade, retornar direto também
+        then: async (resolve, reject) => {
+          try {
+            const result = await database.select(table, columns, { [field]: value });
+            resolve(result);
+          } catch (error) {
+            reject(error);
+          }
+        }
+      }),
+      single: async () => {
+        const result = await database.select(table, columns);
+        // Se já é um objeto único (profiles), retornar como está
+        // Se é array, pegar o primeiro elemento
+        const singleData = Array.isArray(result.data) ? result.data?.[0] : result.data;
+        return { ...result, data: singleData || null };
+      },
+      limit: (count) => ({
+        then: async (resolve, reject) => {
+          try {
+            // Para chats, buscar os chats do usuário
+            if (table === 'chats') {
+              const result = await apiRequest('/chats', { method: 'GET' });
+              resolve(result);
+            } else {
+              const result = await database.select(table, columns);
+              resolve(result);
+            }
+          } catch (error) {
+            reject(error);
+          }
+        }
+      }),
+      neq: (field, value) => ({
+        then: async (resolve, reject) => {
+          try {
+            // Usado para listar usuários exceto o atual
+            if (table === 'profiles') {
+              const result = await apiRequest('/auth/users', { method: 'GET' });
+              resolve(result);
+            } else {
+              const result = await database.select(table, columns);
+              resolve(result);
+            }
+          } catch (error) {
+            reject(error);
+          }
+        }
+      }),
+      order: (field, options) => ({
+        then: async (resolve, reject) => {
+          try {
+            const result = await database.select(table, columns);
+            resolve(result);
+          } catch (error) {
+            reject(error);
+          }
+        }
+      }),
+    }),
+    update: (data) => ({
+      eq: (field, value) => database.update(table, data, { [field]: value }),
+    }),
+    upsert: (data, options) => ({
+      select: async () => {
+        // Para profiles, usar endpoint de atualização de perfil
+        if (table === 'profiles') {
+          return await auth.updateProfile(data);
+        }
+        return { data: null, error: { message: 'Upsert não suportado para esta tabela' } };
+      },
+    }),
+    delete: () => ({
+      eq: (field, value) => database.delete(table, { [field]: value }),
+    }),
+  }),
+};
+
+// ==================== STORAGE (Mock) ====================
+// As imagens são salvas como Base64 no banco, não precisa storage separado
+export const storage = {
+  upload: async (bucket, path, file) => {
+    console.log('Storage upload não implementado - usando Base64 no banco');
+    return { data: { path }, error: null };
+  },
+  getPublicUrl: (bucket, path) => {
+    console.log('Storage getPublicUrl não implementado - usando Base64 do banco');
+    return { publicURL: path, error: null };
+  },
+};
