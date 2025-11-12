@@ -1,36 +1,102 @@
 // ======================================================================
-// CONFIGURAÇÃO DA API - SCANPLANT
+// CONFIGURAÇÃO DA API - SCANPLANT - MULTI-IP AUTOMÁTICO
 // ======================================================================
-// Este arquivo centraliza a configuração da URL da API para diferentes ambientes
+// Sistema inteligente que tenta múltiplos IPs automaticamente
 
-// INSTRUÇÕES:
-// 1. Execute o script get-ip.ps1 no backend para descobrir seu IP local
-// 2. Descomente e configure a linha correspondente ao seu ambiente
-// 3. A porta padrão da API é 5041
+// Lista de IPs conhecidos (adicione seus IPs aqui)
+const KNOWN_IPS = [
+  '192.168.0.130',   // Casa
+  '192.168.1.100',   // Escola (exemplo - ajuste com o IP real)
+  '10.0.0.100',      // Outra rede (exemplo)
+  'localhost',       // Fallback para desenvolvimento local
+];
+
+const PORT = 5041;
+const API_PATH = '/api';
+
+// Variável para armazenar o IP que funciona
+let workingBaseUrl = null;
+
+// Função para testar se um IP está acessível
+async function testConnection(ip) {
+  const baseUrl = ip === 'localhost' 
+    ? `http://localhost:${PORT}${API_PATH}`
+    : `http://${ip}:${PORT}${API_PATH}`;
+  
+  try {
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 2000); // 2 segundos timeout
+    
+    const response = await fetch(`${baseUrl}/health`, {
+      method: 'GET',
+      signal: controller.signal,
+    });
+    
+    clearTimeout(timeoutId);
+    
+    if (response.ok || response.status === 404) {
+      // 404 é OK - significa que o servidor está rodando mas a rota /health não existe
+      console.log(`✅ API acessível em: ${baseUrl}`);
+      return baseUrl;
+    }
+  } catch (error) {
+    console.log(`❌ Não foi possível conectar em: ${baseUrl}`);
+  }
+  
+  return null;
+}
+
+// Função para descobrir o IP que funciona
+async function discoverWorkingIP() {
+  if (workingBaseUrl) {
+    return workingBaseUrl; // Já encontramos antes
+  }
+  
+  console.log('🔍 Procurando API acessível...');
+  
+  // Testa todos os IPs em paralelo
+  const promises = KNOWN_IPS.map(ip => testConnection(ip));
+  const results = await Promise.all(promises);
+  
+  // Pega o primeiro que funcionou
+  workingBaseUrl = results.find(url => url !== null);
+  
+  if (workingBaseUrl) {
+    console.log(`✅ API encontrada: ${workingBaseUrl}`);
+  } else {
+    console.error('❌ Nenhuma API acessível encontrada!');
+    // Fallback para o primeiro IP da lista
+    workingBaseUrl = `http://${KNOWN_IPS[0]}:${PORT}${API_PATH}`;
+    console.log(`⚠️ Usando fallback: ${workingBaseUrl}`);
+  }
+  
+  return workingBaseUrl;
+}
 
 export const API_CONFIG = {
-  // ============================================
-  // ESCOLHA UMA DAS OPÇÕES ABAIXO:
-  // ============================================
+  // Esta função retorna o BASE_URL dinâmico
+  getBaseUrl: async () => {
+    return await discoverWorkingIP();
+  },
   
-  // OPÇÃO 1: EMULADOR ANDROID
-  // Use este IP especial que o Android redireciona para localhost do PC
-  // BASE_URL: 'http://10.0.2.2:5041/api',
+  // BASE_URL síncrono (fallback)
+  BASE_URL: `http://${KNOWN_IPS[0]}:${PORT}${API_PATH}`,
   
-  // OPÇÃO 2: EMULADOR iOS ou NAVEGADOR WEB
-  // Funciona quando o front-end está rodando no mesmo computador que a API
-  // BASE_URL: 'http://localhost:5041/api',
+  TIMEOUT: 10000,
   
-  // OPÇÃO 3: DISPOSITIVO FÍSICO (Celular/Tablet) ou EXPO GO
-  // Substitua 'SEU_IP_LOCAL' pelo IP da sua máquina na rede
-  // Execute o script get-ip.ps1 no backend para descobrir seu IP
-  // Exemplo: 'http://192.168.0.100:5041/api'
-  BASE_URL: 'http://192.168.0.130:5041/api',
+  // Adicionar novo IP à lista
+  addKnownIP: (ip) => {
+    if (!KNOWN_IPS.includes(ip)) {
+      KNOWN_IPS.push(ip);
+      console.log(`➕ IP adicionado: ${ip}`);
+    }
+  },
   
-  // ============================================
-  // CONFIGURAÇÕES ADICIONAIS
-  // ============================================
-  TIMEOUT: 10000, // Timeout de 10 segundos para requisições
+  // Forçar re-descoberta (útil se mudar de rede)
+  resetConnection: () => {
+    workingBaseUrl = null;
+    console.log('🔄 Conexão resetada. Próxima requisição vai buscar novamente.');
+  }
 };
 
 // ======================================================================

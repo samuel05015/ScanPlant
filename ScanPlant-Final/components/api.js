@@ -2,10 +2,25 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Platform } from 'react-native';
 import { API_CONFIG } from './apiConfig';
 
-// URL da API configurada centralmente
-const API_URL = API_CONFIG.BASE_URL;
+// URL da API - será descoberta dinamicamente
+let API_URL = API_CONFIG.BASE_URL; // Fallback inicial
+let isDiscoveringAPI = false;
 
-console.log(`🌐 API URL configurada: ${API_URL} (Platform: ${Platform.OS})`);
+// Descobrir API no primeiro uso
+const getApiUrl = async () => {
+  if (!isDiscoveringAPI && API_CONFIG.getBaseUrl) {
+    isDiscoveringAPI = true;
+    try {
+      API_URL = await API_CONFIG.getBaseUrl();
+      console.log(`🌐 API descoberta: ${API_URL} (Platform: ${Platform.OS})`);
+    } catch (error) {
+      console.warn('⚠️ Erro ao descobrir API, usando fallback:', API_URL);
+    }
+    isDiscoveringAPI = false;
+  }
+  return API_URL;
+};
+
 console.log(`⏱️ Timeout configurado: ${API_CONFIG.TIMEOUT}ms`);
 
 
@@ -42,6 +57,8 @@ export const removeToken = async () => {
 
 // Fazer requisição autenticada
 const apiRequest = async (endpoint, options = {}) => {
+  // Descobre a API URL dinamicamente
+  const currentApiUrl = await getApiUrl();
   const token = await getToken();
   
   const headers = {
@@ -54,7 +71,7 @@ const apiRequest = async (endpoint, options = {}) => {
   }
 
   try {
-    const fullUrl = `${API_URL}${endpoint}`;
+    const fullUrl = `${currentApiUrl}${endpoint}`;
     console.log(`📡 Fazendo requisição para: ${fullUrl}`);
     console.log(`📦 Método: ${options.method || 'GET'}`);
     
@@ -193,15 +210,12 @@ export const database = {
       CommonName: data.common_name,
       Family: data.family,
       Genus: data.genus,
-      WikiDescription: data.wiki_description,
-      CareInstructions: data.care_instructions,
       ImageData: data.image_data,
       Latitude: data.latitude,
       Longitude: data.longitude,
       City: data.city,
       LocationName: data.location_name,
       WateringFrequencyDays: data.watering_frequency_days,
-      WateringFrequencyText: data.watering_frequency_text,
       ReminderEnabled: data.reminder_enabled || false,
       Notes: data.notes,
     };
@@ -220,15 +234,12 @@ export const database = {
         common_name: plant.commonName,
         family: plant.family,
         genus: plant.genus,
-        wiki_description: plant.wikiDescription,
-        care_instructions: plant.careInstructions,
         image_data: plant.imageData,
         latitude: plant.latitude,
         longitude: plant.longitude,
         city: plant.city,
         location_name: plant.locationName,
         watering_frequency_days: plant.wateringFrequencyDays,
-        watering_frequency_text: plant.wateringFrequencyText,
         reminder_enabled: plant.reminderEnabled,
         notes: plant.notes,
         user_id: plant.userId,
@@ -257,32 +268,23 @@ export const database = {
 
       // Converter PascalCase para snake_case
       if (response.data && Array.isArray(response.data)) {
-        response.data = response.data.map(plant => {
-          console.log('🔍 Plant do backend:', plant.commonName);
-          console.log('   WikiDescription existe?', !!plant.wikiDescription);
-          console.log('   CareInstructions existe?', !!plant.careInstructions);
-          
-          return {
-            id: plant.id,
-            scientific_name: plant.scientificName,
-            common_name: plant.commonName,
-            family: plant.family,
-            genus: plant.genus,
-            wiki_description: plant.wikiDescription,
-            care_instructions: plant.careInstructions,
-            image_data: plant.imageData,
-            latitude: plant.latitude,
-            longitude: plant.longitude,
-            city: plant.city,
-            location_name: plant.locationName,
-            watering_frequency_days: plant.wateringFrequencyDays,
-            watering_frequency_text: plant.wateringFrequencyText,
-            reminder_enabled: plant.reminderEnabled,
-            notes: plant.notes,
-            user_id: plant.userId,
-            created_at: plant.createdAt,
-          };
-        });
+        response.data = response.data.map(plant => ({
+          id: plant.id,
+          scientific_name: plant.scientificName,
+          common_name: plant.commonName,
+          family: plant.family,
+          genus: plant.genus,
+          image_data: plant.imageData,
+          latitude: plant.latitude,
+          longitude: plant.longitude,
+          city: plant.city,
+          location_name: plant.locationName,
+          watering_frequency_days: plant.wateringFrequencyDays,
+          reminder_enabled: plant.reminderEnabled,
+          notes: plant.notes,
+          user_id: plant.userId,
+          created_at: plant.createdAt,
+        }));
       }
 
       return response;
