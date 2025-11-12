@@ -38,9 +38,11 @@ try {
 }
 
 // --- CONFIGURAÇÕES E CONSTANTES ---
-const PLANT_ID_API_KEY = 'lz8GUbeXEkLexa0nWTZ0n1dU8DOOiLMdeOPA3BY5nWrC2p2D6O';
+// IMPORTANTE: Configure suas chaves no arquivo .env
+// Copie .env.example para .env e preencha com suas chaves reais
+const PLANT_ID_API_KEY = process.env.PLANT_ID_API_KEY || 'SUA_CHAVE_PLANT_ID_AQUI';
 const PLANT_ID_API_URL = 'https://api.plant.id/v2/identify';
-const GROQ_API_KEY = process.env.GROQ_API_KEY || 'SUA_CHAVE_GROQ_AQUI'; // Configure no .env
+const GROQ_API_KEY = process.env.GROQ_API_KEY || 'SUA_CHAVE_GROQ_AQUI';
 const GROQ_API_URL = 'https://api.groq.com/openai/v1/chat/completions';
 const REVERSE_GEOCODING_API_URL = 'https://nominatim.openstreetmap.org/reverse';
 
@@ -169,7 +171,7 @@ export default function PhotoScreen() {
         };
     }
     try {
-      const apiKey = GROQ_API_KEY; // Configurada no topo do arquivo
+      const apiKey = GROQ_API_KEY; // Usa a constante configurada no topo
       const response = await fetch(GROQ_API_URL, {
         method: 'POST',
         headers: {
