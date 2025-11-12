@@ -217,6 +217,8 @@ const PlantDetailScreen = () => {
             <InfoRow label="Descrição" value={plant?.wiki_description || plant?.enhanced_description || 'Descrição não disponível'} />
             <InfoRow label="Família" value={plant?.family || 'Não disponível'} />
             <InfoRow label="Gênero" value={plant?.genus || 'Não disponível'} />
+            
+            <Text style={styles.sectionTitle}>Guia de Cuidados</Text>
             <InfoRow label="Cuidados" value={plant?.care_instructions || 'Cuidados não disponíveis'} />
 
             <Text style={styles.sectionTitle}>Lembrete de Rega</Text>
