@@ -11,10 +11,6 @@ const Colors = {
 
 const Spacing = { xs: 4, sm: 8, md: 12, lg: 16, xl: 24, '2xl': 32 };
 const BorderRadius = { md: 8, lg: 12 };
-const Layout = {
-  shellMaxWidth: 'min(100%, 1320px)',
-  shellPadding: 'clamp(12px, 2.2vw, 24px)',
-};
 
 interface Plant {
   id: number;
@@ -99,7 +95,6 @@ const SearchScreen: React.FC = () => {
 
   const PlantListItem: React.FC<{ item: Plant }> = ({ item }) => (
     <div
-      className="desktop-search-item"
       onClick={() => openPlantInMap(item)}
       style={{
         flexDirection: 'row',
@@ -107,6 +102,7 @@ const SearchScreen: React.FC = () => {
         backgroundColor: Colors.background.primary,
         padding: 12,
         borderRadius: BorderRadius.lg,
+        marginBottom: 12,
         boxShadow: '0 1px 4px rgba(0, 0, 0, 0.05)',
         border: '1px solid #f1f5f9',
         display: 'flex',
@@ -184,12 +180,10 @@ const SearchScreen: React.FC = () => {
   );
 
   return (
-    <div className="desktop-search-page" style={{ minHeight: '100vh', backgroundColor: Colors.background.secondary }}>
+    <div style={{ minHeight: '100vh', backgroundColor: Colors.background.secondary }}>
       <div
-        className="desktop-search-shell"
         style={{
-          maxWidth: Layout.shellMaxWidth,
-          width: '100%',
+          maxWidth: 1180,
           margin: '0 auto',
           backgroundColor: Colors.background.secondary,
           minHeight: '100vh',
@@ -197,13 +191,14 @@ const SearchScreen: React.FC = () => {
       >
         {/* Header */}
         <div
-          className="desktop-search-header"
           style={{
+            flexDirection: 'row',
+            paddingVertical: 24,
+            paddingHorizontal: 16,
             borderBottom: '1px solid #f1f5f9',
-            alignItems: 'center',
+            alignItems: 'flex-start',
             display: 'flex',
-            gap: 10,
-            padding: `clamp(20px, 4vw, 24px) ${Layout.shellPadding}`,
+            padding: '24px 16px',
             backgroundColor: Colors.background.secondary,
           }}
         >
@@ -236,10 +231,10 @@ const SearchScreen: React.FC = () => {
               <polyline points="12 19 5 12 12 5" />
             </svg>
           </button>
-          <div className="desktop-search-title-block" style={{ flex: 1, textAlign: 'center' }}>
+          <div style={{ flex: 1, alignItems: 'center', textAlign: 'center' }}>
             <h1
               style={{
-                fontSize: 'clamp(24px, 3vw, 32px)',
+                fontSize: 28,
                 fontWeight: 'bold',
                 color: Colors.text.primary,
                 marginTop: 8,
@@ -256,9 +251,8 @@ const SearchScreen: React.FC = () => {
 
         {/* Search Container */}
         <div
-          className="desktop-search-card"
           style={{
-            margin: `${Spacing.lg}px ${Layout.shellPadding}`,
+            margin: 16,
             backgroundColor: Colors.background.primary,
             borderRadius: 12,
             padding: 16,
@@ -266,92 +260,89 @@ const SearchScreen: React.FC = () => {
             border: '1px solid #f1f5f9',
           }}
         >
-          <div className="desktop-search-fields">
-            <div
+          <div
+            style={{
+              backgroundColor: '#F8FAFC',
+              borderRadius: 8,
+              border: '1px solid #e2e8f0',
+              marginBottom: 12,
+              justifyContent: 'center',
+            }}
+          >
+            <select
+              value={searchType}
+              onChange={(e) => {
+                setSearchType(e.target.value);
+                searchPlant(searchTextRef.current);
+              }}
               style={{
-                backgroundColor: '#F8FAFC',
-                borderRadius: 8,
-                border: '1px solid #e2e8f0',
-                marginBottom: 12,
-                justifyContent: 'center',
+                height: 50,
+                color: Colors.text.primary,
+                padding: '0 12px',
+                fontSize: 16,
+                border: 'none',
+                backgroundColor: 'transparent',
+                width: '100%',
+                outline: 'none',
               }}
             >
-              <select
-                value={searchType}
-                onChange={(e) => {
-                  setSearchType(e.target.value);
-                  searchPlant(searchTextRef.current);
-                }}
-                style={{
-                  height: 50,
-                  color: Colors.text.primary,
-                  padding: '0 12px',
-                  fontSize: 16,
-                  border: 'none',
-                  backgroundColor: 'transparent',
-                  width: '100%',
-                  outline: 'none',
-                }}
-              >
-                <option value="common_name">Nome Comum</option>
-                <option value="scientific_name">Nome Científico</option>
-                <option value="city">Cidade</option>
-              </select>
-            </div>
-
-            <div
-              style={{
-                display: 'flex',
-                alignItems: 'center',
-                backgroundColor: '#F8FAFC',
-                borderRadius: 8,
-                border: '1px solid #e2e8f0',
-                paddingLeft: 12,
-                paddingRight: 12,
-                marginBottom: 16,
-              }}
-            >
-              <svg
-                width="20"
-                height="20"
-                viewBox="0 0 24 24"
-                fill="none"
-                stroke="#94A3B8"
-                strokeWidth="2"
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                style={{ marginRight: 8 }}
-              >
-                <circle cx="11" cy="11" r="8" />
-                <path d="m21 21-4.35-4.35" />
-              </svg>
-              <input
-                ref={searchInputRef}
-                type="text"
-                placeholder="Digite sua busca..."
-                onChange={handleSearchChange}
-                onKeyPress={(e) => {
-                  if (e.key === 'Enter') searchPlant();
-                }}
-                style={{
-                  flex: 1,
-                  height: 50,
-                  fontSize: 16,
-                  color: Colors.text.primary,
-                  border: 'none',
-                  backgroundColor: 'transparent',
-                  outline: 'none',
-                }}
-              />
-            </div>
+              <option value="common_name">Nome Comum</option>
+              <option value="scientific_name">Nome Científico</option>
+              <option value="city">Cidade</option>
+            </select>
           </div>
 
-          <div className="desktop-search-actions" style={{ display: 'flex', flexWrap: 'wrap', gap: 12 }}>
+          <div
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              backgroundColor: '#F8FAFC',
+              borderRadius: 8,
+              border: '1px solid #e2e8f0',
+              paddingLeft: 12,
+              paddingRight: 12,
+              marginBottom: 16,
+            }}
+          >
+            <svg
+              width="20"
+              height="20"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="#94A3B8"
+              strokeWidth="2"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              style={{ marginRight: 8 }}
+            >
+              <circle cx="11" cy="11" r="8" />
+              <path d="m21 21-4.35-4.35" />
+            </svg>
+            <input
+              ref={searchInputRef}
+              type="text"
+              placeholder="Digite sua busca..."
+              onChange={handleSearchChange}
+              onKeyPress={(e) => {
+                if (e.key === 'Enter') searchPlant();
+              }}
+              style={{
+                flex: 1,
+                height: 50,
+                fontSize: 16,
+                color: Colors.text.primary,
+                border: 'none',
+                backgroundColor: 'transparent',
+                outline: 'none',
+              }}
+            />
+          </div>
+
+          <div style={{ display: 'flex', gap: 12 }}>
             <button
               onClick={searchPlant}
               style={{
                 flex: 1,
-                minWidth: 140,
                 display: 'flex',
                 alignItems: 'center',
                 justifyContent: 'center',
@@ -391,7 +382,6 @@ const SearchScreen: React.FC = () => {
               onClick={fetchAllPlants}
               style={{
                 flex: 1,
-                minWidth: 140,
                 display: 'flex',
                 alignItems: 'center',
                 justifyContent: 'center',
@@ -435,7 +425,7 @@ const SearchScreen: React.FC = () => {
         </div>
 
         {/* Plant List */}
-        <div className="desktop-search-list" style={{ paddingLeft: Layout.shellPadding, paddingRight: Layout.shellPadding, paddingBottom: 24 }}>
+        <div style={{ paddingLeft: 16, paddingRight: 16, paddingBottom: 24 }}>
           {loading ? (
             <div style={{ marginTop: 40, textAlign: 'center' }}>
               <div
@@ -458,7 +448,6 @@ const SearchScreen: React.FC = () => {
             </div>
           ) : filteredPlants.length === 0 ? (
             <div
-              className="desktop-search-empty"
               style={{
                 flex: 1,
                 justifyContent: 'center',
@@ -494,9 +483,7 @@ const SearchScreen: React.FC = () => {
               </p>
             </div>
           ) : (
-            <div className="desktop-search-grid" style={{ display: 'grid', gap: 12, gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))' }}>
-              {filteredPlants.map((plant) => <PlantListItem key={plant.id} item={plant} />)}
-            </div>
+            filteredPlants.map((plant) => <PlantListItem key={plant.id} item={plant} />)
           )}
         </div>
       </div>

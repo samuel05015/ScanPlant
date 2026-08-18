@@ -2,6 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { useParams, useNavigate, useLocation } from 'react-router-dom';
 import { database, auth } from '../api';
 import { getFavoritePlantIds, toggleFavoritePlant } from '../favorites';
+import PlantSafetySection from '../components/PlantSafetySection';
 
 const Colors = {
   primary: { 50: '#F0FDF4', 100: '#DCFCE7', 200: '#BBF7D0', 400: '#4ADE80', 500: '#22C55E', 600: '#16A34A' },
@@ -13,10 +14,6 @@ const Colors = {
 
 const Spacing = { xs: 4, sm: 8, md: 12, lg: 16, xl: 24, '2xl': 32 };
 const BorderRadius = { lg: 12, xl: 16, '2xl': 24, full: 9999 };
-const Layout = {
-  shellMaxWidth: 'min(100%, 1180px)',
-  shellPadding: 'clamp(12px, 2.2vw, 24px)',
-};
 
 const resolveImageSource = (imageData: string) => {
   if (typeof imageData === 'string' && imageData.length > 0) {
@@ -175,7 +172,6 @@ export default function PlantDetailScreen() {
           color: Colors.text.primary,
           fontStyle: isItalic ? 'italic' : 'normal',
           margin: 0,
-          overflowWrap: 'anywhere',
         }}>
           {value}
         </p>
@@ -267,14 +263,13 @@ export default function PlantDetailScreen() {
       backgroundColor: Colors.background.primary,
     }}>
       <div style={{
-        maxWidth: Layout.shellMaxWidth,
-        width: '100%',
+        maxWidth: 960,
         margin: '0 auto',
         backgroundColor: Colors.background.primary,
         minHeight: '100vh',
       }}>
         <div style={{
-          height: 'clamp(280px, 42vh, 460px)',
+          height: 400,
           width: '100%',
           backgroundColor: Colors.neutral[300],
           position: 'relative',
@@ -298,13 +293,13 @@ export default function PlantDetailScreen() {
           }} />
           <div style={{
             position: 'absolute',
-            top: 'clamp(16px, 3vw, 40px)',
+            top: 40,
             left: 0,
             right: 0,
             display: 'flex',
             justifyContent: 'space-between',
-            paddingLeft: Layout.shellPadding,
-            paddingRight: Layout.shellPadding,
+            paddingLeft: Spacing.lg,
+            paddingRight: Spacing.lg,
           }}>
             <HeaderButton iconName="arrow-left" onPress={() => navigate(-1)} />
             <div style={{ display: 'flex', gap: Spacing.sm }}>
@@ -319,11 +314,11 @@ export default function PlantDetailScreen() {
           borderTopLeftRadius: BorderRadius['2xl'],
           borderTopRightRadius: BorderRadius['2xl'],
           marginTop: -Spacing.xl,
-          padding: `clamp(16px, 2.5vw, 24px)`,
+          padding: Spacing.xl,
           position: 'relative',
         }}>
           <h1 style={{
-            fontSize: 'clamp(28px, 3.4vw, 36px)',
+            fontSize: 32,
             fontWeight: 'bold',
             color: Colors.text.primary,
             margin: 0,
@@ -336,7 +331,6 @@ export default function PlantDetailScreen() {
             fontStyle: 'italic',
             marginTop: Spacing.xs,
             margin: `${Spacing.xs}px 0 0 0`,
-            overflowWrap: 'anywhere',
           }}>
             {plant?.scientific_name || 'Nome científico não disponível'}
           </p>
@@ -360,6 +354,8 @@ export default function PlantDetailScreen() {
           <InfoRow label="Descrição" value={plant?.wiki_description || plant?.enhanced_description || 'Descrição não disponível'} />
           <InfoRow label="Família" value={plant?.family || 'Não disponível'} />
           <InfoRow label="Gênero" value={plant?.genus || 'Não disponível'} />
+
+          <PlantSafetySection safety={plant} />
 
           <h2 style={{
             fontSize: 20,

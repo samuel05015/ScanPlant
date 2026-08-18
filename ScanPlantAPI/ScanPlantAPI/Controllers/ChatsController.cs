@@ -33,10 +33,22 @@ public class ChatsController : ControllerBase
             return Unauthorized();
         }
 
+        var otherUserId = dto.OtherUserId.Trim();
+        if (otherUserId == currentUserId)
+        {
+            return BadRequest(new { message = "Escolha outra pessoa para iniciar a conversa." });
+        }
+
+        if (!await _context.Users.AnyAsync(user => user.Id == otherUserId))
+        {
+            return NotFound(new { message = "Usuário não encontrado." });
+        }
+
         // Verificar se já existe chat entre os usuários
         var existingChat = await _context.Chats
             .Include(c => c.Participants)
-            .Where(c => c.ParticipantIds.Contains(currentUserId) && c.ParticipantIds.Contains(dto.OtherUserId))
+            .Where(c => c.Participants.Any(p => p.UserId == currentUserId) &&
+                        c.Participants.Any(p => p.UserId == otherUserId))
             .FirstOrDefaultAsync();
 
         if (existingChat != null)
@@ -45,7 +57,7 @@ public class ChatsController : ControllerBase
         }
 
         // Criar novo chat
-        var participantIds = new List<string> { currentUserId, dto.OtherUserId };
+        var participantIds = new List<string> { currentUserId, otherUserId };
         var chat = new Chat
         {
             ParticipantIds = JsonSerializer.Serialize(participantIds),
@@ -78,6 +90,11 @@ public class ChatsController : ControllerBase
     public async Task<ActionResult<ChatDto>> GetChatById(Guid id)
     {
         var currentUserId = User.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)?.Value;
+        if (string.IsNullOrEmpty(currentUserId))
+        {
+            return Unauthorized();
+        }
+
         var chat = await _context.Chats.Include(c => c.Participants).FirstOrDefaultAsync(c => c.Id == id);
 
         if (chat == null)
@@ -86,13 +103,12 @@ public class ChatsController : ControllerBase
         }
 
         // Verificar se o usuário é participante
-        var participantIds = JsonSerializer.Deserialize<List<string>>(chat.ParticipantIds) ?? new List<string>();
-        if (!participantIds.Contains(currentUserId))
+        if (!chat.Participants.Any(participant => participant.UserId == currentUserId))
         {
             return Forbid();
         }
 
-        return Ok(await MapToDtoAsync(chat, currentUserId!));
+        return Ok(await MapToDtoAsync(chat, currentUserId));
     }
 
     /// <summary>
@@ -106,7 +122,7 @@ public class ChatsController : ControllerBase
 
         var chats = await _context.Chats
             .Include(c => c.Participants)
-            .Where(c => c.ParticipantIds.Contains(currentUserId!))
+            .Where(c => c.Participants.Any(p => p.UserId == currentUserId))
             .OrderByDescending(c => c.LastMessageTime ?? c.CreatedAt)
             .ToListAsync();
 
@@ -132,6 +148,12 @@ public class ChatsController : ControllerBase
         if (chat == null)
         {
             return NotFound(new { message = "Chat não encontrado" });
+        }
+
+        if (string.IsNullOrEmpty(currentUserId) ||
+            !await _context.ChatParticipants.AnyAsync(p => p.ChatId == id && p.UserId == currentUserId))
+        {
+            return Forbid();
         }
 
         // Marcar mensagens como lidas

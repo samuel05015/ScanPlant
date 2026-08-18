@@ -16,9 +16,61 @@ interface ProfileImage {
   mimeType?: string;
 }
 
-const Layout = {
-  shellMaxWidth: 'min(100%, 1280px)',
-  shellPadding: 'clamp(12px, 2.2vw, 24px)',
+const PROFILE_IMAGE_SIZE = 512;
+
+const prepareProfileImage = (file: File): Promise<ProfileImage> => {
+  return new Promise((resolve, reject) => {
+    if (file.type && !file.type.startsWith('image/')) {
+      reject(new Error('O arquivo selecionado não é uma imagem.'));
+      return;
+    }
+
+    const objectUrl = URL.createObjectURL(file);
+    const image = new Image();
+
+    image.onload = () => {
+      try {
+        const sourceSize = Math.min(image.naturalWidth, image.naturalHeight);
+        const sourceX = (image.naturalWidth - sourceSize) / 2;
+        const sourceY = (image.naturalHeight - sourceSize) / 2;
+        const canvas = document.createElement('canvas');
+        canvas.width = PROFILE_IMAGE_SIZE;
+        canvas.height = PROFILE_IMAGE_SIZE;
+
+        const context = canvas.getContext('2d');
+        if (!context) throw new Error('Não foi possível processar a imagem.');
+
+        context.drawImage(
+          image,
+          sourceX,
+          sourceY,
+          sourceSize,
+          sourceSize,
+          0,
+          0,
+          PROFILE_IMAGE_SIZE,
+          PROFILE_IMAGE_SIZE
+        );
+
+        const uri = canvas.toDataURL('image/jpeg', 0.8);
+        const base64 = uri.split(',')[1];
+        if (!base64) throw new Error('Não foi possível converter a imagem.');
+
+        resolve({ uri, base64, mimeType: 'image/jpeg' });
+      } catch (error) {
+        reject(error);
+      } finally {
+        URL.revokeObjectURL(objectUrl);
+      }
+    };
+
+    image.onerror = () => {
+      URL.revokeObjectURL(objectUrl);
+      reject(new Error('Formato de imagem não suportado.'));
+    };
+
+    image.src = objectUrl;
+  });
 };
 
 const ProfileSettingsScreen: React.FC = () => {
@@ -91,22 +143,17 @@ const ProfileSettingsScreen: React.FC = () => {
     input.type = 'file';
     input.accept = 'image/*';
     
-    input.onchange = (e: any) => {
-      const file = e.target?.files?.[0];
+    input.onchange = async (e: Event) => {
+      const target = e.target as HTMLInputElement;
+      const file = target.files?.[0];
       if (!file) return;
 
-      const reader = new FileReader();
-      reader.onloadend = () => {
-        const base64String = reader.result as string;
-        const base64Data = base64String.split(',')[1];
-        
-        setProfileImage({
-          uri: base64String,
-          base64: base64Data,
-          mimeType: file.type
-        });
-      };
-      reader.readAsDataURL(file);
+      try {
+        setProfileImage(await prepareProfileImage(file));
+      } catch (error) {
+        console.error('Error preparing profile image:', error);
+        alert(error instanceof Error ? error.message : 'Não foi possível selecionar a imagem.');
+      }
     };
     
     input.click();
@@ -128,8 +175,8 @@ const ProfileSettingsScreen: React.FC = () => {
       setLoading(true);
 
       const updateData: any = {
-        name: userData.name,
-        phone: userData.phone,
+        name: userData.name.trim(),
+        phone: userData.phone.trim() || undefined,
         bio: userData.bio
       };
 
@@ -151,7 +198,8 @@ const ProfileSettingsScreen: React.FC = () => {
 
       setInitialUserData(userData);
       if (profileImage?.base64) {
-        setProfileImage({ uri: profileImage.uri });
+        const savedAvatar = data?.avatarUrl || data?.AvatarUrl || profileImage.uri;
+        setProfileImage({ uri: savedAvatar });
       }
 
       alert('Perfil atualizado com sucesso!');
@@ -197,71 +245,69 @@ const ProfileSettingsScreen: React.FC = () => {
       minHeight: '100vh',
       backgroundColor: '#f5f5f5'
     }}>
-      <div className="profile-shell" style={{ maxWidth: Layout.shellMaxWidth, width: '100%', margin: '0 auto', minHeight: '100vh', backgroundColor: '#f5f5f5' }}>
-        <div className="profile-header" style={{
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'space-between',
-          padding: `16px ${Layout.shellPadding}`,
-          borderBottom: '1px solid #e5e7eb',
-          backgroundColor: '#ffffff'
+      <div style={{
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'space-between',
+        padding: '16px 24px',
+        borderBottom: '1px solid #e5e7eb',
+        backgroundColor: '#ffffff'
+      }}>
+        <button
+          onClick={handleBack}
+          style={{
+            padding: '8px',
+            background: 'none',
+            border: 'none',
+            cursor: 'pointer'
+          }}
+        >
+          <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+            <path d="M19 12H5M12 19l-7-7 7-7"/>
+          </svg>
+        </button>
+        
+        <h1 style={{
+          fontSize: '20px',
+          fontWeight: '600',
+          color: '#1a1a1a',
+          margin: 0
         }}>
-          <button
-            onClick={handleBack}
-            style={{
-              padding: '8px',
-              background: 'none',
-              border: 'none',
-              cursor: 'pointer'
-            }}
-          >
-            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-              <path d="M19 12H5M12 19l-7-7 7-7"/>
-            </svg>
-          </button>
-          
-          <h1 style={{
-            fontSize: 'clamp(18px, 2.3vw, 22px)',
-            fontWeight: '600',
-            color: '#1a1a1a',
-            margin: 0,
-            textAlign: 'center',
-          }}>
-            Configurações de Perfil
-          </h1>
-          
-          <div style={{ width: '24px' }} />
-        </div>
+          Configurações de Perfil
+        </h1>
+        
+        <div style={{ width: '24px' }} />
+      </div>
 
-        <div className="profile-content" style={{
-          overflowY: 'auto',
-          height: 'calc(100vh - 64px)',
-          paddingBottom: '48px'
-        }}>
-          {loading ? (
+      <div style={{
+        overflowY: 'auto',
+        height: 'calc(100vh - 64px)',
+        paddingBottom: '48px'
+      }}>
+        {loading ? (
+          <div style={{
+            display: 'flex',
+            justifyContent: 'center',
+            alignItems: 'center',
+            padding: '32px'
+          }}>
+            <div style={{
+              width: '40px',
+              height: '40px',
+              border: '4px solid #e5e7eb',
+              borderTopColor: '#22c55e',
+              borderRadius: '50%',
+              animation: 'spin 1s linear infinite'
+            }} />
+          </div>
+        ) : (
+          <>
             <div style={{
               display: 'flex',
-              justifyContent: 'center',
+              flexDirection: 'column',
               alignItems: 'center',
               padding: '32px'
             }}>
-              <div style={{
-                width: '40px',
-                height: '40px',
-                border: '4px solid #e5e7eb',
-                borderTopColor: '#22c55e',
-                borderRadius: '50%',
-                animation: 'spin 1s linear infinite'
-              }} />
-            </div>
-          ) : (
-            <>
-              <div className="profile-avatar-block" style={{
-                display: 'flex',
-                flexDirection: 'column',
-                alignItems: 'center',
-                padding: 'clamp(20px, 4vw, 32px)'
-              }}>
               <div style={{
                 position: 'relative',
                 marginBottom: '16px'
@@ -328,15 +374,15 @@ const ProfileSettingsScreen: React.FC = () => {
               }}>
                 Toque para alterar a foto
               </span>
-              </div>
+            </div>
 
-              <div className="profile-form-card" style={{
-                backgroundColor: '#ffffff',
-                borderRadius: '12px',
-                margin: `0 ${Layout.shellPadding} 32px ${Layout.shellPadding}`,
-                padding: 'clamp(16px, 3vw, 24px)',
-                boxShadow: '0 1px 3px rgba(0,0,0,0.1)'
-              }}>
+            <div style={{
+              backgroundColor: '#ffffff',
+              borderRadius: '12px',
+              margin: '0 24px 32px 24px',
+              padding: '24px',
+              boxShadow: '0 1px 3px rgba(0,0,0,0.1)'
+            }}>
               <h2 style={{
                 fontSize: '18px',
                 fontWeight: '600',
@@ -376,6 +422,7 @@ const ProfileSettingsScreen: React.FC = () => {
                     value={userData.name}
                     onChange={(e) => setUserData(prev => ({ ...prev, name: e.target.value }))}
                     placeholder="Seu nome"
+                    maxLength={120}
                     style={{
                       flex: 1,
                       height: '44px',
@@ -466,6 +513,7 @@ const ProfileSettingsScreen: React.FC = () => {
                     value={userData.phone}
                     onChange={(e) => setUserData(prev => ({ ...prev, phone: e.target.value }))}
                     placeholder="Seu telefone"
+                    maxLength={30}
                     style={{
                       flex: 1,
                       height: '44px',
@@ -500,6 +548,7 @@ const ProfileSettingsScreen: React.FC = () => {
                     value={userData.bio}
                     onChange={(e) => setUserData(prev => ({ ...prev, bio: e.target.value }))}
                     rows={4}
+                    maxLength={1000}
                     style={{
                       width: '100%',
                       height: '90px',
@@ -514,15 +563,15 @@ const ProfileSettingsScreen: React.FC = () => {
                   />
                 </div>
               </div>
-              </div>
+            </div>
 
-              <div className="profile-actions" style={{
-                padding: `0 ${Layout.shellPadding}`,
-                display: 'flex',
-                flexDirection: 'column',
-                gap: '16px',
-                marginTop: '16px'
-              }}>
+            <div style={{
+              padding: '0 24px',
+              display: 'flex',
+              flexDirection: 'column',
+              gap: '16px',
+              marginTop: '16px'
+            }}>
               <button
                 onClick={saveChanges}
                 disabled={!hasChanges()}
@@ -578,50 +627,14 @@ const ProfileSettingsScreen: React.FC = () => {
               >
                 Sair da conta
               </button>
-              </div>
-            </>
-          )}
-        </div>
+            </div>
+          </>
+        )}
       </div>
 
       <style>{`
         @keyframes spin {
           to { transform: rotate(360deg); }
-        }
-
-        @media (min-width: 1024px) {
-          .profile-shell {
-            padding-bottom: 56px;
-          }
-
-          .profile-content {
-            height: auto !important;
-            overflow: visible !important;
-            padding-bottom: 0 !important;
-          }
-
-          .profile-avatar-block {
-            padding-top: 40px !important;
-            padding-bottom: 28px !important;
-          }
-
-          .profile-form-card {
-            max-width: 860px;
-            margin: 0 auto 40px auto !important;
-            padding: 32px 34px !important;
-            box-shadow: 0 8px 24px rgba(15, 23, 42, 0.08) !important;
-          }
-
-          .profile-actions {
-            max-width: 860px;
-            margin: 4px auto 0 auto;
-            padding: 0 !important;
-          }
-
-          .profile-header {
-            padding-top: 20px !important;
-            padding-bottom: 20px !important;
-          }
         }
       `}</style>
     </div>

@@ -1,6 +1,7 @@
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.RateLimiting;
 using Microsoft.EntityFrameworkCore;
 using ScanPlantAPI.DTOs.Auth;
 using ScanPlantAPI.Models;
@@ -30,21 +31,23 @@ public class AuthController : ControllerBase
     /// Registrar novo usuário
     /// </summary>
     [HttpPost("register")]
+    [EnableRateLimiting("auth")]
     [ProducesResponseType(typeof(AuthResponseDto), StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status400BadRequest)]
     public async Task<ActionResult<AuthResponseDto>> Register([FromBody] RegisterDto dto)
     {
-        var existingUser = await _userManager.FindByEmailAsync(dto.Email);
+        var email = dto.Email.Trim();
+        var existingUser = await _userManager.FindByEmailAsync(email);
         if (existingUser != null)
         {
-            return BadRequest(new { message = "Email já está em uso" });
+            return BadRequest(new { message = "Não foi possível criar a conta com os dados informados." });
         }
 
         var user = new ApplicationUser
         {
-            UserName = dto.Email,
-            Email = dto.Email,
-            Name = dto.Name,
+            UserName = email,
+            Email = email,
+            Name = dto.Name?.Trim(),
             CreatedAt = DateTime.UtcNow,
             UpdatedAt = DateTime.UtcNow
         };
@@ -64,7 +67,7 @@ public class AuthController : ControllerBase
             UserId = user.Id,
             Email = user.Email!,
             Name = user.Name,
-            ExpiresAt = DateTime.UtcNow.AddDays(7)
+            ExpiresAt = DateTime.UtcNow.AddHours(2)
         });
     }
 
@@ -72,17 +75,25 @@ public class AuthController : ControllerBase
     /// Login de usuário
     /// </summary>
     [HttpPost("login")]
+    [EnableRateLimiting("auth")]
     [ProducesResponseType(typeof(AuthResponseDto), StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status401Unauthorized)]
     public async Task<ActionResult<AuthResponseDto>> Login([FromBody] LoginDto dto)
     {
-        var user = await _userManager.FindByEmailAsync(dto.Email);
+        var user = await _userManager.FindByEmailAsync(dto.Email.Trim());
         if (user == null)
         {
             return Unauthorized(new { message = "Email ou senha inválidos" });
         }
 
-        var result = await _signInManager.CheckPasswordSignInAsync(user, dto.Password, false);
+        var result = await _signInManager.CheckPasswordSignInAsync(user, dto.Password, lockoutOnFailure: true);
+
+        if (result.IsLockedOut)
+        {
+            return StatusCode(
+                StatusCodes.Status429TooManyRequests,
+                new { message = "Acesso temporariamente bloqueado. Aguarde 15 minutos." });
+        }
 
         if (!result.Succeeded)
         {
@@ -97,7 +108,7 @@ public class AuthController : ControllerBase
             UserId = user.Id,
             Email = user.Email!,
             Name = user.Name,
-            ExpiresAt = DateTime.UtcNow.AddDays(7)
+            ExpiresAt = DateTime.UtcNow.AddHours(2)
         });
     }
 
@@ -208,9 +219,9 @@ public class AuthController : ControllerBase
             .Select(u => new UserProfileDto
             {
                 Id = u.Id,
-                Email = u.Email!,
+                Email = string.Empty,
                 Name = u.Name,
-                Phone = u.Phone,
+                Phone = null,
                 Bio = u.Bio,
                 AvatarUrl = u.AvatarUrl,
                 ExperienceLevel = u.ExperienceLevel,
@@ -233,6 +244,7 @@ public class AuthController : ControllerBase
     [ProducesResponseType(StatusCodes.Status404NotFound)]
     public async Task<ActionResult<UserProfileDto>> GetUserById(string id)
     {
+        var currentUserId = User.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)?.Value;
         var user = await _userManager.FindByIdAsync(id);
         if (user == null)
         {
@@ -242,9 +254,9 @@ public class AuthController : ControllerBase
         return Ok(new UserProfileDto
         {
             Id = user.Id,
-            Email = user.Email!,
+            Email = user.Id == currentUserId ? user.Email! : string.Empty,
             Name = user.Name,
-            Phone = user.Phone,
+            Phone = user.Id == currentUserId ? user.Phone : null,
             Bio = user.Bio,
             AvatarUrl = user.AvatarUrl,
             ExperienceLevel = user.ExperienceLevel,

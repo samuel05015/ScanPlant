@@ -19,6 +19,25 @@ public class CreatePlantDto
 
     public string? WikiDescription { get; set; }
     public string? CareInstructions { get; set; }
+    [MaxLength(40)]
+    public string? ToxicityStatus { get; set; }
+    [MaxLength(1200)]
+    public string? ToxicityNote { get; set; }
+    [MaxLength(40)]
+    public string? EdibilityStatus { get; set; }
+    [MaxLength(1200)]
+    public string? EdibilityNote { get; set; }
+    public List<string>? EdibleParts { get; set; }
+    [MaxLength(40)]
+    public string? LegalStatus { get; set; }
+    [MaxLength(1200)]
+    public string? LegalNote { get; set; }
+    [MaxLength(80)]
+    public string? SafetyAssessmentOrigin { get; set; }
+    public DateTimeOffset? SafetyAssessedAt { get; set; }
+    public List<SafetySourceDto>? SafetySources { get; set; }
+    [MaxLength(1200)]
+    public string? SafetyDisclaimer { get; set; }
     public string? ImageData { get; set; }
     public string? ImageUrl { get; set; }
 
@@ -56,6 +75,25 @@ public class UpdatePlantDto
 
     public string? WikiDescription { get; set; }
     public string? CareInstructions { get; set; }
+    [MaxLength(40)]
+    public string? ToxicityStatus { get; set; }
+    [MaxLength(1200)]
+    public string? ToxicityNote { get; set; }
+    [MaxLength(40)]
+    public string? EdibilityStatus { get; set; }
+    [MaxLength(1200)]
+    public string? EdibilityNote { get; set; }
+    public List<string>? EdibleParts { get; set; }
+    [MaxLength(40)]
+    public string? LegalStatus { get; set; }
+    [MaxLength(1200)]
+    public string? LegalNote { get; set; }
+    [MaxLength(80)]
+    public string? SafetyAssessmentOrigin { get; set; }
+    public DateTimeOffset? SafetyAssessedAt { get; set; }
+    public List<SafetySourceDto>? SafetySources { get; set; }
+    [MaxLength(1200)]
+    public string? SafetyDisclaimer { get; set; }
     public string? ImageData { get; set; }
     public string? ImageUrl { get; set; }
 
@@ -87,6 +125,17 @@ public class PlantDto
     public string? Genus { get; set; }
     public string? WikiDescription { get; set; }
     public string? CareInstructions { get; set; }
+    public string? ToxicityStatus { get; set; }
+    public string? ToxicityNote { get; set; }
+    public string? EdibilityStatus { get; set; }
+    public string? EdibilityNote { get; set; }
+    public List<string>? EdibleParts { get; set; }
+    public string? LegalStatus { get; set; }
+    public string? LegalNote { get; set; }
+    public string? SafetyAssessmentOrigin { get; set; }
+    public DateTimeOffset? SafetyAssessedAt { get; set; }
+    public List<SafetySourceDto>? SafetySources { get; set; }
+    public string? SafetyDisclaimer { get; set; }
     public string? ImageData { get; set; }
     public string? ImageUrl { get; set; }
     public decimal? Latitude { get; set; }
@@ -102,4 +151,20 @@ public class PlantDto
     public bool IsInCommunity { get; set; }
     public DateTime CreatedAt { get; set; }
     public DateTime UpdatedAt { get; set; }
+}
+
+public class SafetySourceDto
+{
+    [Required]
+    [MaxLength(200)]
+    public string Label { get; set; } = string.Empty;
+
+    [Required]
+    [Url]
+    [MaxLength(1000)]
+    public string Url { get; set; } = string.Empty;
+
+    [Required]
+    [MaxLength(50)]
+    public string Kind { get; set; } = string.Empty;
 }

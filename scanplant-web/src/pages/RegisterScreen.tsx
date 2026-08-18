@@ -1,214 +1,102 @@
-import React, { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useMemo, useState } from 'react';
+import { Link, useNavigate } from 'react-router-dom';
+import { ArrowRight, Check, Eye, EyeOff, LockKeyhole, Mail, UserRound } from 'lucide-react';
 import { auth } from '../api';
+import BrandLogo from '../components/BrandLogo';
 
 export default function RegisterScreen() {
   const navigate = useNavigate();
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState('');
-  const [success, setSuccess] = useState('');
   const [loading, setLoading] = useState(false);
 
-  const handleRegister = async (e: React.FormEvent) => {
-    e.preventDefault();
-    
-    if (!name || !email || !password) {
-      setError('Por favor, preencha todos os campos!');
-      setSuccess('');
-      return;
-    }
+  const passwordChecks = useMemo(() => [
+    { label: '8 ou mais caracteres', valid: password.length >= 8 },
+    { label: 'uma letra minúscula', valid: /[a-z]/.test(password) },
+    { label: 'uma letra maiúscula', valid: /[A-Z]/.test(password) },
+    { label: 'um número', valid: /\d/.test(password) },
+    { label: '4 caracteres diferentes', valid: new Set(password).size >= 4 },
+  ], [password]);
+  const passwordIsValid = passwordChecks.every((check) => check.valid);
 
-    if (password.length < 6) {
-      setError('Sua senha deve ter pelo menos 6 caracteres!');
-      setSuccess('');
-      return;
-    }
-
-    // Validar se a senha contém letras e números
-    const temLetras = /[a-zA-Z]/.test(password);
-    const temNumeros = /[0-9]/.test(password);
-    
-    if (!temLetras || !temNumeros) {
-      setError('A senha deve conter letras E números!');
-      setSuccess('');
-      return;
-    }
+  const handleRegister = async (event: React.FormEvent) => {
+    event.preventDefault();
+    if (loading || !passwordIsValid) return;
 
     setLoading(true);
     setError('');
-
     try {
-      console.log('📝 Tentando criar conta:', email, 'Nome:', name);
-      
-      const { data, error: apiError } = await auth.signUp(email, password, name);
-      
-      console.log('📥 Resposta do cadastro:', { data, error: apiError });
-      
+      const { error: apiError } = await auth.signUp(email.trim(), password, name.trim());
       if (apiError) {
-        console.error('❌ Erro no cadastro:', apiError);
-        const errorMsg = apiError.message || apiError.toString();
-        
-        if (errorMsg.includes('already') || errorMsg.includes('registered')) {
-          setError('Já existe uma conta com este email.');
-          setSuccess('');
-        } else if (errorMsg.includes('network') || errorMsg.includes('fetch')) {
-          setError('Erro de conexão! Verifique sua internet.');
-          setSuccess('');
-        } else {
-          setError(`Erro: ${errorMsg}`);
-          setSuccess('');
-        }
-      } else {
-        console.log('✅ Conta criada com sucesso!');
-        setSuccess('Conta criada com sucesso! Faça login para continuar.');
-        setError('');
-        setName('');
-        setEmail('');
-        setPassword('');
-        
-        setTimeout(() => {
-          navigate('/login');
-        }, 2000);
+        setError(apiError.status === 429
+          ? 'Muitas tentativas. Aguarde alguns minutos.'
+          : 'Não foi possível criar a conta. Revise os dados ou use outro e-mail.');
+        return;
       }
-    } catch (err) {
-      console.error('❌ Exceção ao criar conta:', err);
-      setError('Erro de conexão! Verifique sua internet.');
-      setSuccess('');
+      navigate('/instructions', { replace: true });
+    } catch {
+      setError('Não foi possível conectar. Tente novamente em instantes.');
     } finally {
       setLoading(false);
     }
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-b from-[#E9F5DB] to-white flex flex-col items-center justify-center p-4 sm:p-6">
-      <div className="w-full max-w-sm md:max-w-md flex flex-col py-8">
-        <img 
-          src="/imagemlogotcc.png" 
-          alt="ScanPlant Logo" 
-          className="w-[88px] h-[132px] sm:w-[100px] sm:h-[150px] object-contain mb-5 self-center"
-          onError={(e) => {
-            e.currentTarget.style.display = 'none';
-            e.currentTarget.parentElement?.querySelector('.fallback-logo')?.classList.remove('hidden');
-          }}
-        />
-        <div className="fallback-logo hidden w-20 h-20 bg-[#4A6C35] rounded-full mb-5 self-center flex items-center justify-center text-white text-2xl font-bold">
-          SP
+    <div className="auth-layout">
+      <section className="auth-visual" aria-hidden="true">
+        <img src="/scanplant-hero.png" alt="" />
+        <div className="absolute inset-0 z-10 flex flex-col justify-end p-12 xl:p-16 text-white">
+          <p className="mb-5 text-xs font-extrabold uppercase tracking-[0.18em] text-white/70">Conheça • Cuide • Compartilhe</p>
+          <h2 className="font-display max-w-xl text-5xl xl:text-6xl leading-[1.04] mb-4">Seu olhar para a natureza começa aqui.</h2>
+          <p className="max-w-lg text-base leading-relaxed text-white/75">Crie uma coleção viva e aprenda a interpretar cada identificação com segurança.</p>
         </div>
+      </section>
 
-        <h1 className="text-2xl sm:text-[28px] font-bold text-[#333] mb-2 text-center">Crie sua conta</h1>
-        <p className="text-sm sm:text-base text-[#666] mb-8 sm:mb-10 text-center">É rápido e fácil!</p>
+      <main className="auth-panel py-10">
+        <div className="auth-card">
+          <Link to="/login" className="inline-flex mb-6" aria-label="ScanPlant — voltar ao login">
+            <BrandLogo compact />
+          </Link>
 
-        <form onSubmit={handleRegister} className="w-full space-y-4 sm:space-y-5">
-          {/* Nome Input */}
-          <div className="flex items-center bg-[#F4F4F4] rounded-xl h-[50px] px-4 border border-[#E8E8E8]">
-            <svg 
-              width="20" 
-              height="20" 
-              viewBox="0 0 24 24" 
-              fill="none" 
-              stroke="#A9A9A9" 
-              strokeWidth="2" 
-              strokeLinecap="round" 
-              strokeLinejoin="round"
-              className="mr-2.5"
-            >
-              <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path>
-              <circle cx="12" cy="7" r="4"></circle>
-            </svg>
-            <input
-              type="text"
-              placeholder="Nome completo"
-              className="flex-1 h-full bg-transparent border-none outline-none text-base text-[#333] placeholder-[#A9A9A9]"
-              value={name}
-              onChange={(e) => setName(e.target.value)}
-              autoCapitalize="words"
-              required
-            />
-          </div>
+          <p className="text-xs font-extrabold uppercase tracking-[0.16em] text-[var(--color-primary-600)] mb-2">Comece agora</p>
+          <h1 className="font-display text-4xl text-[var(--color-forest)] mb-3">Crie sua conta</h1>
+          <p className="text-sm leading-relaxed text-[var(--color-text-secondary)] mb-7">Leva menos de um minuto e não exige cartão.</p>
 
-          {/* Email Input */}
-          <div className="flex items-center bg-[#F4F4F4] rounded-xl h-[50px] px-4 border border-[#E8E8E8]">
-            <svg 
-              width="20" 
-              height="20" 
-              viewBox="0 0 24 24" 
-              fill="none" 
-              stroke="#A9A9A9" 
-              strokeWidth="2" 
-              strokeLinecap="round" 
-              strokeLinejoin="round"
-              className="mr-2.5"
-            >
-              <path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"></path>
-              <polyline points="22,6 12,13 2,6"></polyline>
-            </svg>
-            <input
-              type="email"
-              placeholder="Email"
-              className="flex-1 h-full bg-transparent border-none outline-none text-base text-[#333] placeholder-[#A9A9A9]"
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-              autoCapitalize="none"
-              required
-            />
-          </div>
+          <form onSubmit={handleRegister} className="space-y-4" noValidate>
+            <label className="block">
+              <span className="block text-sm font-bold mb-2">Nome</span>
+              <span className="relative block"><UserRound size={19} className="form-field-icon" aria-hidden="true" /><input type="text" className="form-field form-field--start-icon" placeholder="Como devemos chamar você?" value={name} onChange={(event) => setName(event.target.value)} autoComplete="name" maxLength={120} required /></span>
+            </label>
+            <label className="block">
+              <span className="block text-sm font-bold mb-2">E-mail</span>
+              <span className="relative block"><Mail size={19} className="form-field-icon" aria-hidden="true" /><input type="email" className="form-field form-field--start-icon" placeholder="voce@exemplo.com" value={email} onChange={(event) => setEmail(event.target.value)} autoComplete="email" inputMode="email" required /></span>
+            </label>
+            <label className="block">
+              <span className="block text-sm font-bold mb-2">Senha</span>
+              <span className="relative block">
+                <LockKeyhole size={19} className="form-field-icon" aria-hidden="true" />
+                <input type={showPassword ? 'text' : 'password'} className="form-field form-field--start-icon form-field--end-action" placeholder="Crie uma senha forte" value={password} onChange={(event) => setPassword(event.target.value)} autoComplete="new-password" required />
+                <button type="button" onClick={() => setShowPassword((current) => !current)} className="form-field-action" aria-label={showPassword ? 'Ocultar senha' : 'Mostrar senha'}>{showPassword ? <EyeOff size={19} /> : <Eye size={19} />}</button>
+              </span>
+            </label>
 
-          {/* Password Input */}
-          <div className="flex items-center bg-[#F4F4F4] rounded-xl h-[50px] px-4 border border-[#E8E8E8]">
-            <svg 
-              width="20" 
-              height="20" 
-              viewBox="0 0 24 24" 
-              fill="none" 
-              stroke="#A9A9A9" 
-              strokeWidth="2" 
-              strokeLinecap="round" 
-              strokeLinejoin="round"
-              className="mr-2.5"
-            >
-              <rect x="3" y="11" width="18" height="11" rx="2" ry="2"></rect>
-              <path d="M7 11V7a5 5 0 0 1 10 0v4"></path>
-            </svg>
-            <input
-              type="password"
-              placeholder="Senha (letras e números, mín. 6)"
-              className="flex-1 h-full bg-transparent border-none outline-none text-base text-[#333] placeholder-[#A9A9A9]"
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              required
-            />
-          </div>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 rounded-2xl bg-[#f3f6f2] p-3">
+              {passwordChecks.map((check) => <span key={check.label} className={`flex items-center gap-2 text-xs font-semibold ${check.valid ? 'text-[var(--color-primary-700)]' : 'text-[var(--color-text-tertiary)]'}`}><Check size={14} /> {check.label}</span>)}
+            </div>
 
-          {error && (
-            <p className="text-[#D9534F] text-center text-sm">{error}</p>
-          )}
+            {error && <div role="alert" className="rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-800">{error}</div>}
 
-          {success && (
-            <p className="text-[#5CB85C] text-center text-sm">{success}</p>
-          )}
+            <button type="submit" disabled={loading || !name.trim() || !email.trim() || !passwordIsValid} className="primary-button flex w-full items-center justify-center gap-2">
+              {loading ? 'Protegendo sua conta...' : <>Criar minha conta <ArrowRight size={18} /></>}
+            </button>
+          </form>
 
-          <button
-            type="submit"
-            disabled={loading}
-              className="w-full bg-[#4A6C35] text-white py-3.5 sm:py-4 rounded-xl font-bold text-sm sm:text-base mt-2.5 disabled:opacity-70"
-              style={{ 
-                boxShadow: '0px 2px 2.62px rgba(0, 0, 0, 0.23)'
-              }}
-          >
-            {loading ? 'Criando...' : 'Criar Conta'}
-          </button>
-
-          <button
-            type="button"
-            onClick={() => navigate('/login')}
-            className="w-full bg-transparent text-[#4A6C35] py-3.5 sm:py-4 rounded-xl font-bold text-sm sm:text-base mt-3 border border-[#4A6C35]"
-          >
-            Voltar
-          </button>
-        </form>
-      </div>
+          <p className="mt-7 text-center text-sm text-[var(--color-text-secondary)]">Já tem conta? <Link to="/login" className="font-extrabold text-[var(--color-primary-700)] hover:underline">Entrar</Link></p>
+        </div>
+      </main>
     </div>
   );
 }

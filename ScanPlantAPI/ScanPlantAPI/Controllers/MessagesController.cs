@@ -1,9 +1,11 @@
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.RateLimiting;
 using Microsoft.EntityFrameworkCore;
 using ScanPlantAPI.Data;
 using ScanPlantAPI.DTOs.Messages;
 using ScanPlantAPI.Models;
+using ScanPlantAPI.Services;
 
 namespace ScanPlantAPI.Controllers;
 
@@ -13,16 +15,19 @@ namespace ScanPlantAPI.Controllers;
 public class MessagesController : ControllerBase
 {
     private readonly ApplicationDbContext _context;
+    private readonly IContentSafetyService _contentSafety;
 
-    public MessagesController(ApplicationDbContext context)
+    public MessagesController(ApplicationDbContext context, IContentSafetyService contentSafety)
     {
         _context = context;
+        _contentSafety = contentSafety;
     }
 
     /// <summary>
     /// Enviar mensagem
     /// </summary>
     [HttpPost]
+    [EnableRateLimiting("messages")]
     [ProducesResponseType(typeof(MessageDto), StatusCodes.Status201Created)]
     public async Task<ActionResult<MessageDto>> SendMessage([FromBody] CreateMessageDto dto)
     {
@@ -32,17 +37,34 @@ public class MessagesController : ControllerBase
             return Unauthorized();
         }
 
-        var chat = await _context.Chats.FindAsync(dto.ChatId);
+        var chat = await _context.Chats.FirstOrDefaultAsync(c => c.Id == dto.ChatId);
         if (chat == null)
         {
             return NotFound(new { message = "Chat não encontrado" });
+        }
+
+        if (!await IsParticipantAsync(dto.ChatId, currentUserId))
+        {
+            return Forbid();
+        }
+
+        var content = dto.Content.Trim();
+        if (content.Length == 0)
+        {
+            return BadRequest(new { message = "A mensagem não pode estar vazia." });
+        }
+
+        var moderation = _contentSafety.EvaluateCommunityMessage(content);
+        if (!moderation.Allowed)
+        {
+            return BadRequest(new { message = moderation.Message });
         }
 
         var message = new Message
         {
             ChatId = dto.ChatId,
             SenderId = currentUserId,
-            Content = dto.Content,
+            Content = content,
             Read = false,
             CreatedAt = DateTime.UtcNow
         };
@@ -50,7 +72,7 @@ public class MessagesController : ControllerBase
         _context.Messages.Add(message);
 
         // Atualizar última mensagem do chat
-        chat.LastMessage = dto.Content;
+        chat.LastMessage = content;
         chat.LastMessageTime = DateTime.UtcNow;
         chat.LastSenderId = currentUserId;
         chat.UnreadCount++;
@@ -68,10 +90,16 @@ public class MessagesController : ControllerBase
     [ProducesResponseType(StatusCodes.Status404NotFound)]
     public async Task<ActionResult<MessageDto>> GetMessageById(Guid id)
     {
+        var currentUserId = User.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)?.Value;
         var message = await _context.Messages.FindAsync(id);
         if (message == null)
         {
             return NotFound(new { message = "Mensagem não encontrada" });
+        }
+
+        if (string.IsNullOrEmpty(currentUserId) || !await IsParticipantAsync(message.ChatId, currentUserId))
+        {
+            return Forbid();
         }
 
         return Ok(MapToDto(message));
@@ -84,6 +112,12 @@ public class MessagesController : ControllerBase
     [ProducesResponseType(typeof(List<MessageDto>), StatusCodes.Status200OK)]
     public async Task<ActionResult<List<MessageDto>>> GetChatMessages(Guid chatId)
     {
+        var currentUserId = User.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)?.Value;
+        if (string.IsNullOrEmpty(currentUserId) || !await IsParticipantAsync(chatId, currentUserId))
+        {
+            return Forbid();
+        }
+
         var messages = await _context.Messages
             .Where(m => m.ChatId == chatId)
             .OrderBy(m => m.CreatedAt)
@@ -101,10 +135,18 @@ public class MessagesController : ControllerBase
     [ProducesResponseType(StatusCodes.Status404NotFound)]
     public async Task<IActionResult> MarkMessageAsRead(Guid id)
     {
+        var currentUserId = User.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)?.Value;
         var message = await _context.Messages.FindAsync(id);
         if (message == null)
         {
             return NotFound(new { message = "Mensagem não encontrada" });
+        }
+
+        if (string.IsNullOrEmpty(currentUserId) ||
+            message.SenderId == currentUserId ||
+            !await IsParticipantAsync(message.ChatId, currentUserId))
+        {
+            return Forbid();
         }
 
         message.Read = true;
@@ -123,11 +165,15 @@ public class MessagesController : ControllerBase
         var currentUserId = User.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)?.Value;
 
         var unreadCount = await _context.Messages
-            .Where(m => m.SenderId != currentUserId && !m.Read)
+            .Where(m => m.SenderId != currentUserId && !m.Read &&
+                m.Chat.Participants.Any(p => p.UserId == currentUserId))
             .CountAsync();
 
         return Ok(new { count = unreadCount });
     }
+
+    private Task<bool> IsParticipantAsync(Guid chatId, string userId) =>
+        _context.ChatParticipants.AnyAsync(p => p.ChatId == chatId && p.UserId == userId);
 
     private static MessageDto MapToDto(Message message)
     {

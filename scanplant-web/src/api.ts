@@ -1,12 +1,38 @@
 
 import { API_CONFIG } from './apiConfig';
 
-// Token storage - using localStorage for Web
 const TOKEN_KEY = '@scanplant_token';
+
+const getApiErrorMessage = (data: any, status: number) => {
+  const validationErrors = data?.errors;
+
+  if (validationErrors && typeof validationErrors === 'object') {
+    const messages = Object.values(validationErrors)
+      .flatMap((value) => Array.isArray(value) ? value : [value])
+      .filter((value): value is string => typeof value === 'string' && value.trim().length > 0);
+
+    if (messages.length > 0) return messages.join(' ');
+  }
+
+  return data?.message || data?.error || data?.title || `Erro ${status}`;
+};
+
+const isTokenExpired = (token: string) => {
+  try {
+    const payload = token.split('.')[1];
+    if (!payload) return true;
+    const normalized = payload.replace(/-/g, '+').replace(/_/g, '/');
+    const decoded = JSON.parse(atob(normalized));
+    return typeof decoded.exp !== 'number' || decoded.exp * 1000 <= Date.now();
+  } catch {
+    return true;
+  }
+};
 
 export const saveToken = (token: string) => {
   try {
-    localStorage.setItem(TOKEN_KEY, token);
+    sessionStorage.setItem(TOKEN_KEY, token);
+    localStorage.removeItem(TOKEN_KEY);
   } catch (error) {
     console.error('Erro ao salvar token:', error);
   }
@@ -14,7 +40,25 @@ export const saveToken = (token: string) => {
 
 export const getToken = () => {
   try {
-    return localStorage.getItem(TOKEN_KEY);
+    const sessionToken = sessionStorage.getItem(TOKEN_KEY);
+    if (sessionToken) {
+      if (isTokenExpired(sessionToken)) {
+        removeToken();
+        return null;
+      }
+      return sessionToken;
+    }
+
+    const legacyToken = localStorage.getItem(TOKEN_KEY);
+    if (legacyToken) {
+      if (isTokenExpired(legacyToken)) {
+        removeToken();
+        return null;
+      }
+      sessionStorage.setItem(TOKEN_KEY, legacyToken);
+      localStorage.removeItem(TOKEN_KEY);
+    }
+    return legacyToken;
   } catch (error) {
     console.error('Erro ao obter token:', error);
     return null;
@@ -24,6 +68,7 @@ export const getToken = () => {
 export const removeToken = () => {
   try {
     localStorage.removeItem(TOKEN_KEY);
+    sessionStorage.removeItem(TOKEN_KEY);
   } catch (error) {
     console.error('Erro ao remover token:', error);
   }
@@ -47,8 +92,6 @@ const apiRequest = async (endpoint: string, options: RequestInit = {}) => {
 
   try {
     const fullUrl = `${currentApiUrl}${endpoint}`;
-    console.log(`📡 Req: ${fullUrl}`);
-    
     const response = await fetch(fullUrl, {
       ...options,
       headers,
@@ -70,7 +113,8 @@ const apiRequest = async (endpoint: string, options: RequestInit = {}) => {
     }
 
     if (!response.ok) {
-      const errorMessage = data?.message || data?.error || data?.title || `Erro ${response.status}`;
+      if (response.status === 401) removeToken();
+      const errorMessage = getApiErrorMessage(data, response.status);
       return { data: null, error: { message: errorMessage, status: response.status, details: data } };
     }
 
@@ -79,6 +123,20 @@ const apiRequest = async (endpoint: string, options: RequestInit = {}) => {
     console.error('❌ API Error:', error);
     return { data: null, error: { message: error.message || 'Erro de conexão.' } };
   }
+};
+
+export const plantIdentification = {
+  identify: async (image: string) => apiRequest('/plant-identification', {
+    method: 'POST',
+    body: JSON.stringify({ image }),
+  }),
+};
+
+export const plantAssistant = {
+  ask: async (question: string) => apiRequest('/plant-assistant', {
+    method: 'POST',
+    body: JSON.stringify({ question }),
+  }),
 };
 
 export const auth = {
@@ -131,7 +189,11 @@ export const auth = {
       // PascalCase mapping for C# backend
       const pascalData = {
         Name: profileData.name,
-        Phone: profileData.phone,
+        // Phone is optional. ASP.NET's PhoneAttribute rejects an empty string,
+        // so omit it when the user has not provided a number.
+        Phone: typeof profileData.phone === 'string' && profileData.phone.trim()
+          ? profileData.phone.trim()
+          : undefined,
         Bio: profileData.bio,
         AvatarUrl: profileData.avatar_url,
         ExperienceLevel: profileData.experience_level,
@@ -156,6 +218,17 @@ export const database = {
       Genus: data.genus,
       WikiDescription: data.wiki_description,
       CareInstructions: data.care_instructions,
+      ToxicityStatus: data.toxicity_status,
+      ToxicityNote: data.toxicity_note,
+      EdibilityStatus: data.edibility_status,
+      EdibilityNote: data.edibility_note,
+      EdibleParts: data.edible_parts,
+      LegalStatus: data.legal_status,
+      LegalNote: data.legal_note,
+      SafetyAssessmentOrigin: data.safety_assessment_origin,
+      SafetyAssessedAt: data.safety_assessed_at,
+      SafetySources: data.safety_sources,
+      SafetyDisclaimer: data.safety_disclaimer,
       ImageData: data.image_data,
       Latitude: data.latitude,
       Longitude: data.longitude,
@@ -178,15 +251,16 @@ export const database = {
   select: async (table, columns = '*', filters: any = {}) => {
     if (table === 'plants') {
       const userId = filters.user_id || filters.eq?.user_id;
+      const plantId = filters.id || filters.eq?.id;
       let endpoint = '/plants';
-      if (userId === 'current') endpoint = '/plants/my';
+      if (plantId) endpoint = `/plants/${plantId}`;
+      else if (userId === 'current') endpoint = '/plants/my';
       else if (userId) endpoint = `/plants/user/${userId}`;
       
       const response = await apiRequest(endpoint, { method: 'GET' });
       
       // Map PascalCase to snake_case for frontend
-      if (response.data && Array.isArray(response.data)) {
-        response.data = response.data.map(plant => ({
+      const mapPlant = (plant: any) => ({
           id: String(plant.id), // Garantir que ID seja string (Guid)
           scientific_name: plant.scientificName,
           common_name: plant.commonName,
@@ -194,6 +268,17 @@ export const database = {
           genus: plant.genus,
           wiki_description: plant.wikiDescription,
           care_instructions: plant.careInstructions,
+          toxicity_status: plant.toxicityStatus,
+          toxicity_note: plant.toxicityNote,
+          edibility_status: plant.edibilityStatus,
+          edibility_note: plant.edibilityNote,
+          edible_parts: plant.edibleParts || [],
+          legal_status: plant.legalStatus,
+          legal_note: plant.legalNote,
+          safety_assessment_origin: plant.safetyAssessmentOrigin,
+          safety_assessed_at: plant.safetyAssessedAt,
+          safety_sources: plant.safetySources || [],
+          safety_disclaimer: plant.safetyDisclaimer,
           image_data: plant.imageData,
           latitude: plant.latitude,
           longitude: plant.longitude,
@@ -207,7 +292,12 @@ export const database = {
           is_location_public: plant.isLocationPublic,
           is_in_community: plant.isInCommunity,
           created_at: plant.createdAt,
-        }));
+        });
+
+      if (response.data && Array.isArray(response.data)) {
+        response.data = response.data.map(mapPlant);
+      } else if (response.data && plantId) {
+        response.data = [mapPlant(response.data)];
       }
       return response;
     } else if (table === 'profiles') {

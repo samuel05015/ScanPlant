@@ -3,6 +3,7 @@ import { useNavigate, useSearchParams } from 'react-router-dom';
 import { database, auth } from '../api';
 import { getFavoritePlantIds, toggleFavoritePlant } from '../favorites';
 import { Icons } from '../components/Icons';
+import type { PlantSafetyData } from '../plantSafety';
 
 const Colors = {
   primary: { 50: '#E8F5E9', 100: '#C8E6C9', 500: '#22c55e', 600: '#16a34a' },
@@ -14,12 +15,8 @@ const Colors = {
 
 const Spacing = { xs: 4, sm: 8, md: 12, lg: 16, xl: 24, '2xl': 32 };
 const BorderRadius = { sm: 4, md: 8, lg: 12, xl: 16, full: 9999 };
-const Layout = {
-  shellMaxWidth: 'min(100%, 1360px)',
-  shellPadding: 'clamp(12px, 2.2vw, 24px)',
-};
 
-interface Plant {
+interface Plant extends PlantSafetyData {
   id: string;
   common_name: string;
   scientific_name: string;
@@ -38,6 +35,76 @@ interface UserInfo {
   id: string;
   name: string;
 }
+
+type SafetyBadgeTone = 'danger' | 'warning' | 'positive' | 'neutral';
+
+interface SafetyBadgeProps {
+  label: string;
+  value: string;
+  tone: SafetyBadgeTone;
+  detail?: string;
+}
+
+const SafetyBadge: React.FC<SafetyBadgeProps> = ({ label, value, tone, detail }) => {
+  const tones: Record<SafetyBadgeTone, { background: string; border: string; text: string }> = {
+    danger: { background: '#FFF1EE', border: '#F1B7A9', text: '#8A2D1A' },
+    warning: { background: '#FFF8E7', border: '#F1D38D', text: '#70430A' },
+    positive: { background: '#ECFDF3', border: '#A7E2BC', text: '#17633A' },
+    neutral: { background: '#F6F8F7', border: '#DCE5DF', text: '#40584C' },
+  };
+  const colors = tones[tone];
+
+  return (
+    <span
+      title={detail}
+      style={{
+        display: 'inline-flex',
+        alignItems: 'center',
+        gap: 4,
+        padding: '4px 7px',
+        borderRadius: BorderRadius.full,
+        border: `1px solid ${colors.border}`,
+        backgroundColor: colors.background,
+        color: colors.text,
+        fontSize: 11,
+        fontWeight: 600,
+        lineHeight: 1.2,
+      }}
+    >
+      <span style={{ fontWeight: 700 }}>{label}:</span> {value}
+    </span>
+  );
+};
+
+const getToxicityBadge = (plant: Plant): SafetyBadgeProps => {
+  if (plant.toxicity_status === 'potentially_toxic') {
+    return { label: 'Toxicidade', value: 'alerta', tone: 'danger', detail: plant.toxicity_note };
+  }
+  if (plant.toxicity_status === 'no_evidence_found') {
+    return { label: 'Toxicidade', value: 'sem alerta conhecido', tone: 'warning', detail: plant.toxicity_note };
+  }
+  return { label: 'Toxicidade', value: 'não avaliada', tone: 'neutral', detail: plant.toxicity_note };
+};
+
+const getEdibilityBadge = (plant: Plant): SafetyBadgeProps => {
+  if (plant.edibility_status === 'reported_edible') {
+    return { label: 'Comestível', value: 'uso relatado', tone: 'positive', detail: plant.edibility_note };
+  }
+  if (plant.edibility_status === 'not_edible') {
+    return { label: 'Comestível', value: 'não indicada', tone: 'danger', detail: plant.edibility_note };
+  }
+  return { label: 'Comestível', value: 'não avaliada', tone: 'neutral', detail: plant.edibility_note };
+};
+
+const getLegalBadge = (plant: Plant): SafetyBadgeProps => {
+  if (plant.legal_status === 'possibly_regulated') {
+    return { label: 'Legalidade', value: 'atenção', tone: 'danger', detail: plant.legal_note };
+  }
+  if (plant.legal_status === 'not_listed') {
+    return { label: 'Legalidade', value: 'sem restrição conhecida', tone: 'warning', detail: plant.legal_note };
+  }
+  return { label: 'Legalidade', value: 'não avaliada', tone: 'neutral', detail: plant.legal_note };
+};
 
 const PlantGallery: React.FC = () => {
   const navigate = useNavigate();
@@ -146,10 +213,12 @@ const PlantGallery: React.FC = () => {
     const isYourPlant = userInfo && item.user_id === userInfo.id;
     const isFavorite = favoriteIds.includes(String(item.id));
     const canShowLocation = !isInCommunityView || isYourPlant || item.is_location_public;
+    const toxicityBadge = getToxicityBadge(item);
+    const edibilityBadge = getEdibilityBadge(item);
+    const legalBadge = getLegalBadge(item);
 
     return (
       <div
-        className="desktop-gallery-item"
         onClick={() => navigate(`/plant/${item.id}`, { state: { plant: item } })}
         role="button"
         tabIndex={0}
@@ -159,10 +228,11 @@ const PlantGallery: React.FC = () => {
         style={{
           backgroundColor: Colors.background.primary,
           borderRadius: BorderRadius.xl,
+          marginBottom: Spacing.lg,
           boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06)',
           display: 'flex',
           flexDirection: 'row',
-          alignItems: 'center',
+          alignItems: 'stretch',
           overflow: 'hidden',
           borderLeft: isInCommunityView && isYourPlant ? `4px solid ${Colors.success}` : 'none',
           cursor: 'pointer',
@@ -170,19 +240,18 @@ const PlantGallery: React.FC = () => {
           width: '100%',
           textAlign: 'left',
           padding: 0,
-          minWidth: 0,
         }}
       >
         <img
           src={resolveImageSource(item.image_data)}
           style={{
             width: 100,
-            height: 120,
+            minHeight: 140,
             objectFit: 'cover',
           }}
           alt={item.common_name}
         />
-        <div style={{ flex: 1, padding: Spacing.lg, position: 'relative', minWidth: 0 }}>
+        <div style={{ flex: 1, padding: Spacing.lg, position: 'relative' }}>
           <button
             onClick={(event) => {
               event.stopPropagation();
@@ -227,6 +296,21 @@ const PlantGallery: React.FC = () => {
           }}>
             {item.scientific_name || 'Nome científico não disponível'}
           </p>
+
+          <div
+            aria-label="Resumo de segurança da planta"
+            style={{
+              display: 'flex',
+              flexWrap: 'wrap',
+              gap: 6,
+              marginTop: Spacing.sm,
+              marginBottom: Spacing.sm,
+            }}
+          >
+            <SafetyBadge {...toxicityBadge} />
+            <SafetyBadge {...edibilityBadge} />
+            <SafetyBadge {...legalBadge} />
+          </div>
           
           {isInCommunityView && (
             <div style={{ display: 'flex', alignItems: 'center', marginBottom: Spacing.sm }}>
@@ -354,23 +438,22 @@ const PlantGallery: React.FC = () => {
   }
 
   return (
-    <div className="desktop-gallery-page" style={{ 
+    <div style={{ 
       minHeight: '100vh',
       backgroundColor: Colors.background.secondary,
     }}>
-      <div className="desktop-gallery-shell" style={{ 
-        maxWidth: Layout.shellMaxWidth,
-        width: '100%',
+      <div style={{ 
+        maxWidth: 1180,
         margin: '0 auto',
         backgroundColor: Colors.background.secondary,
         minHeight: '100vh',
       }}>
         {/* Header */}
-        <div className="desktop-gallery-header" style={{ 
-          padding: `clamp(20px, 4vw, ${Spacing['2xl']}px) ${Layout.shellPadding} ${Spacing.xl}px`,
+        <div style={{ 
+          padding: `${Spacing['2xl']}px ${Spacing.lg}px ${Spacing.xl}px`,
           width: '100%',
         }}>
-          <div className="desktop-gallery-title-row" style={{ display: 'flex', alignItems: 'center', width: '100%' }}>
+          <div style={{ display: 'flex', alignItems: 'center', width: '100%' }}>
             <button
               onClick={() => navigate(-1)}
               style={{
@@ -391,9 +474,9 @@ const PlantGallery: React.FC = () => {
                 <polyline points="12 19 5 12 12 5" />
               </svg>
             </button>
-            <div className="desktop-gallery-title-block" style={{ flex: 1 }}>
+            <div style={{ flex: 1 }}>
               <h1 style={{ 
-                fontSize: 'clamp(24px, 3vw, 32px)', 
+                fontSize: 28, 
                 fontWeight: 'bold', 
                 color: Colors.text.primary,
                 margin: 0,
@@ -401,7 +484,7 @@ const PlantGallery: React.FC = () => {
                 {viewMode === 'personal' ? 'Minha Coleção de Plantas' : 'Plantas da Comunidade'}
               </h1>
               <p style={{ 
-                fontSize: 'clamp(14px, 1.7vw, 16px)', 
+                fontSize: 16, 
                 color: Colors.text.secondary,
                 marginTop: Spacing.xs,
                 margin: 0,
@@ -415,7 +498,7 @@ const PlantGallery: React.FC = () => {
           </div>
           
           {/* Barra de pesquisa */}
-          <div className="desktop-gallery-search-card" style={{
+          <div style={{
             marginTop: 16,
             backgroundColor: '#FFFFFF',
             borderRadius: 12,
@@ -454,12 +537,11 @@ const PlantGallery: React.FC = () => {
               />
             </div>
 
-            <div className="desktop-gallery-search-actions" style={{ display: 'flex', flexWrap: 'wrap', gap: 12, marginBottom: 12 }}>
+            <div style={{ display: 'flex', gap: 12, marginBottom: 12 }}>
               <button
                 onClick={searchPlant}
                 style={{
                   flex: 1,
-                  minWidth: 150,
                   display: 'flex',
                   alignItems: 'center',
                   justifyContent: 'center',
@@ -482,7 +564,6 @@ const PlantGallery: React.FC = () => {
                 onClick={fetchAllPlants}
                 style={{
                   flex: 1,
-                  minWidth: 150,
                   display: 'flex',
                   alignItems: 'center',
                   justifyContent: 'center',
@@ -510,7 +591,7 @@ const PlantGallery: React.FC = () => {
         </div>
 
         {initialMode === 'personal' && viewMode === 'personal' && (
-            <div className="desktop-gallery-mode-toggle" style={{
+            <div style={{
               display: 'flex',
               backgroundColor: Colors.background.secondary,
               borderRadius: BorderRadius.lg,
@@ -581,9 +662,9 @@ const PlantGallery: React.FC = () => {
           )}
 
         {/* Lista de plantas */}
-        <div className="desktop-gallery-list" style={{ padding: `0 ${Layout.shellPadding} ${Spacing['2xl']}px` }}>
+        <div style={{ padding: `0 ${Spacing.lg}px ${Spacing['2xl']}px` }}>
           {filteredPlants.length === 0 ? (
-            <div className="desktop-gallery-empty" style={{
+            <div style={{
               display: 'flex',
               flexDirection: 'column',
               justifyContent: 'center',
@@ -698,9 +779,7 @@ const PlantGallery: React.FC = () => {
               )}
             </div>
           ) : (
-            <div className="desktop-gallery-grid" style={{ display: 'grid', gap: Spacing.lg, gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))' }}>
-              {filteredPlants.map((plant) => <PlantItem key={plant.id} item={plant} />)}
-            </div>
+            filteredPlants.map((plant) => <PlantItem key={plant.id} item={plant} />)
           )}
         </div>
       </div>

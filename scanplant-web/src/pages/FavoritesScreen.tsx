@@ -14,10 +14,6 @@ const Colors = {
 
 const Spacing = { xs: 4, sm: 8, md: 12, lg: 16, xl: 24, '2xl': 32 };
 const BorderRadius = { md: 8, lg: 12, xl: 16, full: 9999 };
-const Layout = {
-  shellMaxWidth: 'min(100%, 1320px)',
-  shellPadding: 'clamp(12px, 2.2vw, 24px)',
-};
 
 interface Plant {
   id: string;
@@ -89,7 +85,6 @@ export default function FavoritesScreen() {
 
   const FavoritePlantItem = ({ plant }: { plant: Plant }) => (
     <div
-      className="desktop-favorites-item"
       onClick={() => navigate(`/plant/${plant.id}`, { state: { plant } })}
       role="button"
       tabIndex={0}
@@ -99,6 +94,7 @@ export default function FavoritesScreen() {
       style={{
         backgroundColor: Colors.background.primary,
         borderRadius: BorderRadius.xl,
+        marginBottom: Spacing.lg,
         boxShadow: '0 4px 10px rgba(15, 23, 42, 0.08)',
         display: 'flex',
         alignItems: 'center',
@@ -190,10 +186,10 @@ export default function FavoritesScreen() {
   }
 
   return (
-    <div className="desktop-favorites-page" style={{ minHeight: '100vh', backgroundColor: Colors.background.secondary }}>
-      <div className="desktop-favorites-shell" style={{ maxWidth: Layout.shellMaxWidth, width: '100%', margin: '0 auto', minHeight: '100vh', backgroundColor: Colors.background.secondary }}>
-        <div className="desktop-favorites-header" style={{ padding: `clamp(20px, 4vw, ${Spacing['2xl']}px) ${Layout.shellPadding} ${Spacing.xl}px` }}>
-          <div className="desktop-favorites-title-row" style={{ display: 'flex', alignItems: 'center' }}>
+    <div style={{ minHeight: '100vh', backgroundColor: Colors.background.secondary }}>
+      <div style={{ maxWidth: 1180, margin: '0 auto', minHeight: '100vh', backgroundColor: Colors.background.secondary }}>
+        <div style={{ padding: `${Spacing['2xl']}px ${Spacing.lg}px ${Spacing.xl}px` }}>
+          <div style={{ display: 'flex', alignItems: 'center' }}>
             <button
               onClick={() => navigate(-1)}
               aria-label="Voltar"
@@ -213,8 +209,8 @@ export default function FavoritesScreen() {
             >
               <Icons.ArrowLeft size={24} color={Colors.text.secondary} />
             </button>
-            <div className="desktop-favorites-title-block" style={{ flex: 1 }}>
-              <h1 style={{ fontSize: 'clamp(24px, 3vw, 32px)', fontWeight: 800, color: Colors.text.primary, margin: 0 }}>
+            <div style={{ flex: 1 }}>
+              <h1 style={{ fontSize: 28, fontWeight: 800, color: Colors.text.primary, margin: 0 }}>
                 Favoritos
               </h1>
               <p style={{ fontSize: 16, color: Colors.text.secondary, margin: `${Spacing.xs}px 0 0` }}>
@@ -224,9 +220,9 @@ export default function FavoritesScreen() {
           </div>
         </div>
 
-        <div className="desktop-favorites-list" style={{ padding: `0 ${Layout.shellPadding} ${Spacing['2xl']}px` }}>
+        <div style={{ padding: `0 ${Spacing.lg}px ${Spacing['2xl']}px` }}>
           {plants.length === 0 ? (
-            <div className="desktop-favorites-empty" style={{ textAlign: 'center', padding: `${Spacing['2xl']}px ${Spacing.lg}px` }}>
+            <div style={{ textAlign: 'center', padding: `${Spacing['2xl']}px ${Spacing.lg}px` }}>
               <div
                 style={{
                   width: 72,
@@ -265,9 +261,7 @@ export default function FavoritesScreen() {
               </button>
             </div>
           ) : (
-            <div className="desktop-favorites-grid" style={{ display: 'grid', gap: Spacing.lg, gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))' }}>
-              {plants.map((plant) => <FavoritePlantItem key={plant.id} plant={plant} />)}
-            </div>
+            plants.map((plant) => <FavoritePlantItem key={plant.id} plant={plant} />)
           )}
         </div>
       </div>

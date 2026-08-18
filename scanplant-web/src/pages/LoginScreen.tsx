@@ -1,210 +1,129 @@
-import React, { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useState } from 'react';
+import { Link, useNavigate } from 'react-router-dom';
+import { ArrowRight, Eye, EyeOff, LockKeyhole, Mail, ShieldCheck } from 'lucide-react';
 import { auth } from '../api';
+import BrandLogo from '../components/BrandLogo';
 
 export default function LoginScreen() {
   const navigate = useNavigate();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState('');
-  const [success, setSuccess] = useState('');
   const [loading, setLoading] = useState(false);
 
-  const handleLogin = async (e: React.FormEvent) => {
-    e.preventDefault();
+  const handleLogin = async (event: React.FormEvent) => {
+    event.preventDefault();
+    if (loading) return;
+
     setLoading(true);
     setError('');
-    
+
     try {
-      const { data, error: apiError } = await auth.signIn(email, password);
-      
+      const { error: apiError } = await auth.signIn(email.trim(), password);
       if (apiError) {
-        switch (apiError.message) {
-          case 'Invalid login credentials':
-            setError('Email ou senha incorretos!');
-            break;
-          case 'Email not confirmed':
-            setError('Email não confirmado! Verifique sua caixa de entrada.');
-            break;
-          default:
-            setError('Ocorreu um erro! Tente novamente.');
-            break;
-        }
-      } else {
-        setError('');
-        setSuccess('');
-        
-        // Verificar se é o primeiro login desta sessão
-        const isFirstLogin = localStorage.getItem('@scanplant_first_login');
-        
-        if (isFirstLogin === 'true') {
-          localStorage.removeItem('@scanplant_first_login');
-          navigate('/instructions');
-        } else {
-          navigate('/');
-        }
+        setError(apiError.status === 429
+          ? 'Muitas tentativas. Aguarde alguns minutos e tente novamente.'
+          : 'Não foi possível entrar. Confira os dados e tente novamente.');
+        return;
       }
-    } catch (err) {
-      setError('Erro de conexão! Verifique sua internet.');
+
+      const isFirstLogin = localStorage.getItem('@scanplant_first_login');
+      if (isFirstLogin === 'true') {
+        localStorage.removeItem('@scanplant_first_login');
+        navigate('/instructions', { replace: true });
+      } else {
+        navigate('/', { replace: true });
+      }
+    } catch {
+      setError('Não foi possível conectar. Verifique sua internet e tente novamente.');
     } finally {
       setLoading(false);
     }
   };
 
-  const handleResetPassword = async () => {
-    if (!email) {
-      setError('Digite seu email para redefinir a senha.');
-      setSuccess('');
-      return;
-    }
-
-    try {
-      const { data, error: apiError } = await auth.api.resetPasswordForEmail(email);
-      
-      if (apiError) {
-        setError('Erro ao enviar email. Verifique o endereço.');
-        setSuccess('');
-      } else {
-        setSuccess('Email de redefinição de senha enviado!');
-        setError('');
-      }
-    } catch (err) {
-      setError('Erro de conexão! Verifique sua internet.');
-      setSuccess('');
-    }
-  };
-
   return (
-    <div className="min-h-screen bg-gradient-to-b from-[#E9F5DB] to-white flex flex-col">
-      {/* Back Button */}
-      <button 
-        onClick={() => navigate(-1)}
-        className="absolute top-6 sm:top-10 md:top-12 left-4 sm:left-5 z-10 p-2 rounded-full bg-[rgba(255,255,255,0.7)]"
-      >
-        <svg 
-          width="24" 
-          height="24" 
-          viewBox="0 0 24 24" 
-          fill="none" 
-          stroke="#475569" 
-          strokeWidth="2" 
-          strokeLinecap="round" 
-          strokeLinejoin="round"
-        >
-          <line x1="19" y1="12" x2="5" y2="12"></line>
-          <polyline points="12 19 5 12 12 5"></polyline>
-        </svg>
-      </button>
+    <div className="auth-layout auth-layout--login">
+      <section className="auth-visual" aria-hidden="true">
+        <img src="/scanplant-hero.png" alt="" />
+        <div className="absolute inset-0 z-10 flex flex-col justify-end p-12 xl:p-16 text-white">
+          <span className="inline-flex w-fit items-center gap-2 rounded-full border border-white/20 bg-white/10 px-3 py-1.5 text-xs font-bold backdrop-blur-md mb-5">
+            <ShieldCheck size={16} /> Sua sessão é protegida
+          </span>
+          <h2 className="font-display max-w-xl text-5xl xl:text-6xl leading-[1.04] mb-4">Cultive conhecimento, uma descoberta por vez.</h2>
+          <p className="max-w-lg text-base leading-relaxed text-white/75">Identifique espécies, organize sua coleção e tire dúvidas com orientação responsável.</p>
+        </div>
+      </section>
 
-      <div className="flex-1 flex items-center justify-center px-4 sm:px-6">
-        <div className="w-full max-w-sm md:max-w-md flex flex-col items-center py-8">
-          {/* Logo */}
-          <img 
-            src="/imagemlogotcc.png" 
-            alt="ScanPlant Logo" 
-            className="w-[88px] h-[132px] sm:w-[100px] sm:h-[150px] object-contain mb-5"
-            onError={(e) => {
-              // Fallback se a imagem não carregar
-              e.currentTarget.style.display = 'none';
-              e.currentTarget.parentElement?.querySelector('.fallback-logo')?.classList.remove('hidden');
-            }}
-          />
-          <div className="fallback-logo hidden w-24 h-24 bg-[#4A6C35] rounded-full mb-5 flex items-center justify-center text-white text-3xl font-bold">
-            SP
-          </div>
+      <main className="auth-panel">
+        <div className="auth-card">
+          <Link to="/instructions" className="auth-brand-link" aria-label="ScanPlant — abrir guia">
+            <BrandLogo compact />
+          </Link>
 
-          <h1 className="text-2xl sm:text-[28px] font-bold text-[#333] mb-2 text-center">Bem-vindo de volta!</h1>
-          <p className="text-sm sm:text-base text-[#666] mb-8 sm:mb-10 text-center">Faça login para continuar</p>
+          <p className="login-kicker text-xs font-extrabold uppercase tracking-[0.16em] text-[var(--color-primary-600)]">Acesse sua conta</p>
+          <h1 className="login-title font-display text-4xl text-[var(--color-forest)]">Bem-vindo de volta</h1>
+          <p className="login-description text-sm leading-relaxed text-[var(--color-text-secondary)]">Continue cuidando das suas plantas e explorando novas espécies.</p>
 
-          <form onSubmit={handleLogin} className="w-full space-y-4 sm:space-y-5">
-            {/* Email Input */}
-            <div className="flex items-center bg-[#F4F4F4] rounded-xl h-[50px] px-4 border border-[#E8E8E8]">
-              <svg 
-                width="20" 
-                height="20" 
-                viewBox="0 0 24 24" 
-                fill="none" 
-                stroke="#A9A9A9" 
-                strokeWidth="2" 
-                strokeLinecap="round" 
-                strokeLinejoin="round"
-                className="mr-2.5"
-              >
-                <path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"></path>
-                <polyline points="22,6 12,13 2,6"></polyline>
-              </svg>
-              <input
-                type="email"
-                placeholder="Email"
-                className="flex-1 h-full bg-transparent border-none outline-none text-base text-[#333] placeholder-[#A9A9A9]"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                autoCapitalize="none"
-                required
-              />
-            </div>
+          <form onSubmit={handleLogin} className="login-form" noValidate>
+            <label className="block">
+              <span className="block text-sm font-bold text-[var(--color-text-primary)] mb-2">E-mail</span>
+              <span className="relative block">
+                <Mail size={19} className="form-field-icon" aria-hidden="true" />
+                <input
+                  type="email"
+                  className="form-field form-field--start-icon"
+                  placeholder="voce@exemplo.com"
+                  value={email}
+                  onChange={(event) => setEmail(event.target.value)}
+                  autoComplete="email"
+                  inputMode="email"
+                  required
+                />
+              </span>
+            </label>
 
-            {/* Password Input */}
-            <div className="flex items-center bg-[#F4F4F4] rounded-xl h-[50px] px-4 border border-[#E8E8E8]">
-              <svg 
-                width="20" 
-                height="20" 
-                viewBox="0 0 24 24" 
-                fill="none" 
-                stroke="#A9A9A9" 
-                strokeWidth="2" 
-                strokeLinecap="round" 
-                strokeLinejoin="round"
-                className="mr-2.5"
-              >
-                <rect x="3" y="11" width="18" height="11" rx="2" ry="2"></rect>
-                <path d="M7 11V7a5 5 0 0 1 10 0v4"></path>
-              </svg>
-              <input
-                type="password"
-                placeholder="Senha"
-                className="flex-1 h-full bg-transparent border-none outline-none text-base text-[#333] placeholder-[#A9A9A9]"
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                required
-              />
-            </div>
+            <label className="block">
+              <span className="block text-sm font-bold text-[var(--color-text-primary)] mb-2">Senha</span>
+              <span className="relative block">
+                <LockKeyhole size={19} className="form-field-icon" aria-hidden="true" />
+                <input
+                  type={showPassword ? 'text' : 'password'}
+                  className="form-field form-field--start-icon form-field--end-action"
+                  placeholder="Sua senha"
+                  value={password}
+                  onChange={(event) => setPassword(event.target.value)}
+                  autoComplete="current-password"
+                  required
+                />
+                <button
+                  type="button"
+                  onClick={() => setShowPassword((current) => !current)}
+                  className="form-field-action"
+                  aria-label={showPassword ? 'Ocultar senha' : 'Mostrar senha'}
+                >
+                  {showPassword ? <EyeOff size={19} /> : <Eye size={19} />}
+                </button>
+              </span>
+            </label>
 
-            {error && (
-              <p className="text-[#D9534F] text-center text-sm">{error}</p>
-            )}
+            {error && <div role="alert" className="rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-800">{error}</div>}
 
-            {success && (
-              <p className="text-[#5CB85C] text-center text-sm">{success}</p>
-            )}
-
-            <button
-              type="submit"
-              disabled={loading}
-              className="w-full bg-[#4A6C35] text-white py-3.5 sm:py-4 rounded-xl font-bold text-sm sm:text-base mt-2.5 disabled:opacity-70"
-              style={{ 
-                boxShadow: '0px 2px 2.62px rgba(0, 0, 0, 0.23)'
-              }}
-            >
-              {loading ? 'Entrando...' : 'Entrar'}
+            <button type="submit" disabled={loading || !email || !password} className="primary-button flex w-full items-center justify-center gap-2">
+              {loading ? 'Verificando...' : <>Entrar com segurança <ArrowRight size={18} /></>}
             </button>
           </form>
 
-          <button 
-            onClick={handleResetPassword}
-            className="mt-5 text-[#4A6C35] text-sm text-center"
-          >
-            Esqueceu a senha?
-          </button>
+          <div className="login-security-note flex items-start gap-3 rounded-2xl bg-[var(--color-primary-50)] p-4 text-xs leading-relaxed text-[var(--color-text-secondary)]">
+            <ShieldCheck size={19} className="mt-0.5 shrink-0 text-[var(--color-primary-700)]" />
+            Após tentativas incorretas, o acesso é temporariamente bloqueado para proteger sua conta.
+          </div>
 
-          <button
-            onClick={() => navigate('/register')}
-            className="mt-5 text-[#4A6C35] text-sm text-center"
-          >
-            Não tem uma conta? <span className="font-bold">Crie uma aqui.</span>
-          </button>
+          <p className="login-register-link text-center text-sm text-[var(--color-text-secondary)]">
+            Ainda não tem conta? <Link to="/register" className="font-extrabold text-[var(--color-primary-700)] hover:underline">Criar gratuitamente</Link>
+          </p>
         </div>
-      </div>
+      </main>
     </div>
   );
 }

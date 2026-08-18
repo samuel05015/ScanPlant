@@ -33,6 +33,8 @@ desktop.ini
 dist/
 build/
 *.log
+.azure-publish/
+.azure-publish.zip
 
 # C# / .NET
 bin/

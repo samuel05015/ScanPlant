@@ -8,7 +8,7 @@ public class CreateMessageDto
     public Guid ChatId { get; set; }
 
     [Required(ErrorMessage = "Conteúdo da mensagem é obrigatório")]
-    [StringLength(5000, ErrorMessage = "A mensagem não pode ter mais de 5000 caracteres")]
+    [StringLength(1500, MinimumLength = 1, ErrorMessage = "A mensagem deve ter entre 1 e 1500 caracteres")]
     public string Content { get; set; } = string.Empty;
 }
 

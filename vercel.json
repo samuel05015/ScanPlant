@@ -1,8 +1,21 @@
 {
   "version": 2,
-  "buildCommand": "cd scanplant-web && npm install && npm run build",
+  "installCommand": "cd scanplant-web && npm ci",
+  "buildCommand": "cd scanplant-web && npm run build",
   "outputDirectory": "scanplant-web/dist",
   "framework": "vite",
+  "headers": [
+    {
+      "source": "/(.*)",
+      "headers": [
+        { "key": "X-Content-Type-Options", "value": "nosniff" },
+        { "key": "Referrer-Policy", "value": "strict-origin-when-cross-origin" },
+        { "key": "Permissions-Policy", "value": "camera=(self), geolocation=(self), microphone=()" },
+        { "key": "X-Frame-Options", "value": "DENY" },
+        { "key": "Content-Security-Policy", "value": "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data: blob: https:; connect-src 'self' https://scanplant-api-sp05015.azurewebsites.net https://nominatim.openstreetmap.org; object-src 'none'; base-uri 'self'; frame-ancestors 'none'; form-action 'self'; upgrade-insecure-requests" }
+      ]
+    }
+  ],
   "rewrites": [
     {
       "source": "/(.*)",

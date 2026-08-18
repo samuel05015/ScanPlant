@@ -1,5 +1,5 @@
-import React, { useState, useEffect } from 'react';
-import { BrowserRouter as Router, Routes, Route, Navigate, useNavigate } from 'react-router-dom';
+import React, { useState, useEffect, useLayoutEffect } from 'react';
+import { BrowserRouter as Router, Routes, Route, Navigate, useLocation, useNavigate } from 'react-router-dom';
 import LoadingScreen from './pages/LoadingScreen';
 import ScreenPasso from './pages/ScreenPasso';
 import LoginScreen from './pages/LoginScreen';
@@ -15,24 +15,76 @@ import PlantDetailScreen from './pages/PlantDetailScreen';
 import UserListScreen from './pages/UserListScreen';
 import PlantAssistantChat from './pages/PlantAssistantChat';
 import FavoritesScreen from './pages/FavoritesScreen';
+import AppNavigation from './components/AppNavigation';
+import { getToken } from './api';
 
 const ProtectedRoute = ({ children }: { children: React.ReactNode }) => {
-  // Simple check for token
-  const token = localStorage.getItem('@scanplant_token');
+  const token = getToken();
   if (!token) {
     return <Navigate to="/login" replace />;
   }
-  return <>{children}</>;
+  return (
+    <div className="app-shell">
+      <AppNavigation />
+      <main className="app-content">{children}</main>
+    </div>
+  );
+};
+
+const ScrollToTop = () => {
+  const { key } = useLocation();
+
+  useLayoutEffect(() => {
+    const previousRestoration = window.history.scrollRestoration;
+    window.history.scrollRestoration = 'manual';
+
+    return () => {
+      window.history.scrollRestoration = previousRestoration;
+    };
+  }, []);
+
+  useLayoutEffect(() => {
+    const root = document.documentElement;
+    const previousScrollBehavior = root.style.scrollBehavior;
+    root.style.scrollBehavior = 'auto';
+
+    const resetScrollPositions = () => {
+      const scrollingElement = document.scrollingElement;
+      if (scrollingElement) {
+        scrollingElement.scrollTop = 0;
+        scrollingElement.scrollLeft = 0;
+      }
+
+      document.querySelectorAll<HTMLElement>('*').forEach((element) => {
+        const overflowY = window.getComputedStyle(element).overflowY;
+        if ((overflowY === 'auto' || overflowY === 'scroll') && element.scrollTop !== 0) {
+          element.scrollTop = 0;
+        }
+      });
+    };
+
+    resetScrollPositions();
+    const animationFrame = window.requestAnimationFrame(() => {
+      resetScrollPositions();
+      root.style.scrollBehavior = previousScrollBehavior;
+    });
+
+    return () => {
+      window.cancelAnimationFrame(animationFrame);
+      root.style.scrollBehavior = previousScrollBehavior;
+    };
+  }, [key]);
+
+  return null;
 };
 
 function App() {
   const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
-    // Simula carregamento inicial
     const timer = setTimeout(() => {
       setIsLoading(false);
-    }, 2000); // 2 segundos de loading
+    }, 650);
 
     return () => clearTimeout(timer);
   }, []);
@@ -43,7 +95,8 @@ function App() {
 
   return (
     <Router>
-      <div className="font-sans text-gray-900 h-full min-h-screen">
+      <ScrollToTop />
+      <div className="font-sans text-gray-900 min-h-screen">
         <Routes>
           <Route path="/instructions" element={<ScreenPasso />} />
           <Route path="/login" element={<LoginScreen />} />
@@ -128,7 +181,7 @@ const InitialRedirect = () => {
 
   useEffect(() => {
     const hasSeenInstructions = localStorage.getItem('@scanplant_seen_instructions');
-    const token = localStorage.getItem('@scanplant_token');
+    const token = getToken();
     
     if (!hasSeenInstructions && !token && window.location.pathname === '/') {
       navigate('/instructions');

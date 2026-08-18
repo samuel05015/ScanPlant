@@ -1,78 +1,58 @@
-import React from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Camera, Sun, CheckCircle, Shield } from 'lucide-react';
+import { Camera, ChevronRight, Leaf, MapPin, MessageCircle, ShieldCheck, Sparkles } from 'lucide-react';
+import { getToken } from '../api';
 
-interface InstructionStepProps {
-  Icon: React.ElementType;
-  title: string;
-  description: string;
-}
+const steps = [
+  { number: '01', Icon: Camera, title: 'Fotografe com clareza', description: 'Centralize folhas, flores ou frutos, use luz natural e evite fundos muito carregados.' },
+  { number: '02', Icon: Sparkles, title: 'Leia como uma sugestão', description: 'Confira nome, confiança e alertas. Uma foto não substitui avaliação de um especialista.' },
+  { number: '03', Icon: MapPin, title: 'Escolha sua privacidade', description: 'Você decide se salva só na coleção ou compartilha; localização começa sempre protegida.' },
+  { number: '04', Icon: MessageCircle, title: 'Converse com responsabilidade', description: 'Use o assistente para cuidados gerais. Conteúdo ofensivo, perigoso ou ilícito é bloqueado.' },
+];
 
-const InstructionStep: React.FC<InstructionStepProps> = ({ Icon, title, description }) => (
-  <div className="flex items-start sm:items-center mb-6 last:mb-0">
-    <Icon className="w-6 h-6 sm:w-7 sm:h-7 text-[#4A6C35] mr-4 sm:mr-5 flex-shrink-0 mt-1 sm:mt-0" />
-    <div className="flex-1">
-      <h3 className="text-base sm:text-lg font-semibold text-gray-800 mb-1.5">{title}</h3>
-      <p className="text-sm text-gray-600 leading-relaxed">{description}</p>
-    </div>
-  </div>
-);
-
-const ScreenPasso = () => {
+export default function ScreenPasso() {
   const navigate = useNavigate();
 
-  const handlePress = () => {
+  const finish = () => {
     localStorage.setItem('@scanplant_seen_instructions', 'true');
-    navigate('/');
+    navigate(getToken() ? '/' : '/login', { replace: true });
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-b from-[#E9F5DB] to-white flex items-center justify-center p-4 sm:p-6 md:p-8">
-      <div className="w-full max-w-md md:max-w-2xl lg:max-w-3xl flex flex-col items-center justify-around min-h-screen md:min-h-0 py-6 sm:py-8 md:py-10 gap-8">
-        
-        {/* Header */}
-        <div className="flex flex-col items-center w-full">
-          <div className="w-24 h-24 sm:w-28 sm:h-28 rounded-full bg-white flex items-center justify-center mb-5 shadow-lg">
-            <Shield className="w-14 h-14 sm:w-16 sm:h-16 text-[#4A6C35]" />
+    <main className="min-h-screen bg-[var(--color-ivory)]">
+      <div className="mx-auto grid min-h-screen w-full max-w-[1440px] lg:grid-cols-[0.82fr_1.18fr]">
+        <section className="relative overflow-hidden bg-[var(--color-forest)] px-6 py-10 text-white sm:px-10 lg:px-14 lg:py-16">
+          <img src="/scanplant-hero.png" alt="" className="absolute inset-0 h-full w-full object-cover object-[70%_center] opacity-45" />
+          <div className="absolute inset-0 bg-gradient-to-b from-[#173b2a]/65 to-[#102d20]/95" />
+          <div className="relative z-10 flex h-full flex-col">
+            <div className="flex items-center gap-3"><span className="grid h-11 w-11 place-items-center rounded-2xl bg-white/12 backdrop-blur"><Leaf size={23} /></span><span className="font-display text-2xl font-bold">ScanPlant</span></div>
+            <div className="my-auto py-16 lg:py-0">
+              <p className="mb-4 text-xs font-extrabold uppercase tracking-[0.18em] text-[var(--color-primary-200)]">Guia de primeiros passos</p>
+              <h1 className="font-display max-w-xl text-4xl leading-tight sm:text-5xl lg:text-6xl">Descobrir é só o começo.</h1>
+              <p className="mt-5 max-w-lg text-sm leading-relaxed text-white/72 sm:text-base">Use o ScanPlant para aprender e organizar — sempre respeitando os limites da identificação por imagem.</p>
+            </div>
+            <div className="flex items-start gap-3 rounded-2xl border border-white/15 bg-white/8 p-4 backdrop-blur-sm">
+              <ShieldCheck size={21} className="mt-0.5 shrink-0 text-[var(--color-primary-200)]" />
+              <p className="text-xs leading-relaxed text-white/72"><strong className="block text-sm text-white mb-1">Segurança antes da curiosidade</strong>Nunca ingira, aplique na pele ou ofereça a animais uma planta identificada apenas pelo aplicativo.</p>
+            </div>
           </div>
-          <h1 className="text-xl sm:text-2xl md:text-3xl font-bold text-gray-800 text-center mb-2.5">
-            Como Tirar a Foto Perfeita
-          </h1>
-          <p className="text-sm sm:text-base text-gray-600 text-center max-w-[95%] md:max-w-[80%] leading-snug">
-            Siga estas dicas para garantir uma análise precisa da sua planta.
-          </p>
-        </div>
+        </section>
 
-        {/* Card com instruções */}
-        <div className="bg-white rounded-2xl py-6 px-4 sm:px-5 md:px-6 w-full shadow-lg min-h-[300px] flex flex-col justify-around">
-          <InstructionStep
-            Icon={Camera}
-            title="Enquadramento"
-            description="Certifique-se de que a folha ou a área afetada esteja bem focada e centralizada na foto."
-          />
-          <InstructionStep
-            Icon={Sun}
-            title="Iluminação Ideal"
-            description="Fotografe em um local com boa luz natural, evitando sombras fortes e o uso de flash."
-          />
-          <InstructionStep
-            Icon={CheckCircle}
-            title="Foco e Nitidez"
-            description="Toque na tela para focar e mantenha o celular firme para obter uma imagem nítida e clara."
-          />
-        </div>
-
-        {/* Botão */}
-        <button
-          onClick={handlePress}
-          className="bg-[#4A6C35] text-white py-3.5 sm:py-4 w-full rounded-xl font-bold text-sm sm:text-base shadow-md hover:bg-[#3d5a2b] transition-colors"
-        >
-          OK, ENTENDI
-        </button>
-        
+        <section className="flex items-center px-5 py-10 sm:px-10 lg:px-16 lg:py-16">
+          <div className="mx-auto w-full max-w-3xl">
+            <div className="mb-8 lg:mb-10"><p className="text-xs font-extrabold uppercase tracking-[0.16em] text-[var(--color-primary-600)] mb-2">Como usar</p><h2 className="font-display text-3xl sm:text-4xl text-[var(--color-forest)]">Quatro passos para uma boa experiência</h2></div>
+            <div className="grid gap-4 sm:grid-cols-2">
+              {steps.map(({ number, Icon, title, description }) => (
+                <article key={number} className="surface-card p-5 sm:p-6">
+                  <div className="mb-5 flex items-center justify-between"><span className="grid h-11 w-11 place-items-center rounded-2xl bg-[var(--color-primary-100)] text-[var(--color-primary-700)]"><Icon size={21} /></span><span className="font-display text-2xl text-[var(--color-primary-300)]">{number}</span></div>
+                  <h3 className="mb-2 text-base font-extrabold text-[var(--color-text-primary)]">{title}</h3>
+                  <p className="text-sm leading-relaxed text-[var(--color-text-secondary)]">{description}</p>
+                </article>
+              ))}
+            </div>
+            <button onClick={finish} className="primary-button mt-7 flex w-full items-center justify-center gap-2 sm:w-auto sm:min-w-[240px] sm:px-6">Entendi, vamos começar <ChevronRight size={19} /></button>
+          </div>
+        </section>
       </div>
-    </div>
+    </main>
   );
-};
-
-export default ScreenPasso;
+}

@@ -1,6 +1,7 @@
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
+using System.Text.Json;
 using ScanPlantAPI.Data;
 using ScanPlantAPI.DTOs.Plants;
 using ScanPlantAPI.Models;
@@ -42,6 +43,17 @@ public class PlantsController : ControllerBase
             Genus = dto.Genus,
             WikiDescription = dto.WikiDescription,
             CareInstructions = dto.CareInstructions,
+            ToxicityStatus = dto.ToxicityStatus,
+            ToxicityNote = dto.ToxicityNote,
+            EdibilityStatus = dto.EdibilityStatus,
+            EdibilityNote = dto.EdibilityNote,
+            EdiblePartsJson = SerializeJson(dto.EdibleParts),
+            LegalStatus = dto.LegalStatus,
+            LegalNote = dto.LegalNote,
+            SafetyAssessmentOrigin = dto.SafetyAssessmentOrigin,
+            SafetyAssessedAt = dto.SafetyAssessedAt,
+            SafetySourcesJson = SerializeJson(dto.SafetySources),
+            SafetyDisclaimer = dto.SafetyDisclaimer,
             ImageData = dto.ImageData,
             ImageUrl = dto.ImageUrl,
             Latitude = dto.Latitude,
@@ -187,6 +199,17 @@ public class PlantsController : ControllerBase
         if (dto.Genus != null) plant.Genus = dto.Genus;
         if (dto.WikiDescription != null) plant.WikiDescription = dto.WikiDescription;
         if (dto.CareInstructions != null) plant.CareInstructions = dto.CareInstructions;
+        if (dto.ToxicityStatus != null) plant.ToxicityStatus = dto.ToxicityStatus;
+        if (dto.ToxicityNote != null) plant.ToxicityNote = dto.ToxicityNote;
+        if (dto.EdibilityStatus != null) plant.EdibilityStatus = dto.EdibilityStatus;
+        if (dto.EdibilityNote != null) plant.EdibilityNote = dto.EdibilityNote;
+        if (dto.EdibleParts != null) plant.EdiblePartsJson = SerializeJson(dto.EdibleParts);
+        if (dto.LegalStatus != null) plant.LegalStatus = dto.LegalStatus;
+        if (dto.LegalNote != null) plant.LegalNote = dto.LegalNote;
+        if (dto.SafetyAssessmentOrigin != null) plant.SafetyAssessmentOrigin = dto.SafetyAssessmentOrigin;
+        if (dto.SafetyAssessedAt.HasValue) plant.SafetyAssessedAt = dto.SafetyAssessedAt;
+        if (dto.SafetySources != null) plant.SafetySourcesJson = SerializeJson(dto.SafetySources);
+        if (dto.SafetyDisclaimer != null) plant.SafetyDisclaimer = dto.SafetyDisclaimer;
         if (dto.ImageData != null) plant.ImageData = dto.ImageData;
         if (dto.ImageUrl != null) plant.ImageUrl = dto.ImageUrl;
         if (dto.Latitude.HasValue) plant.Latitude = dto.Latitude;
@@ -294,6 +317,17 @@ public class PlantsController : ControllerBase
             Genus = plant.Genus,
             WikiDescription = plant.WikiDescription,
             CareInstructions = plant.CareInstructions,
+            ToxicityStatus = plant.ToxicityStatus,
+            ToxicityNote = plant.ToxicityNote,
+            EdibilityStatus = plant.EdibilityStatus,
+            EdibilityNote = plant.EdibilityNote,
+            EdibleParts = DeserializeJson<List<string>>(plant.EdiblePartsJson),
+            LegalStatus = plant.LegalStatus,
+            LegalNote = plant.LegalNote,
+            SafetyAssessmentOrigin = plant.SafetyAssessmentOrigin,
+            SafetyAssessedAt = plant.SafetyAssessedAt,
+            SafetySources = DeserializeJson<List<SafetySourceDto>>(plant.SafetySourcesJson),
+            SafetyDisclaimer = plant.SafetyDisclaimer,
             ImageData = plant.ImageData,
             ImageUrl = plant.ImageUrl,
             Latitude = plant.Latitude,
@@ -310,5 +344,22 @@ public class PlantsController : ControllerBase
             CreatedAt = plant.CreatedAt,
             UpdatedAt = plant.UpdatedAt
         };
+    }
+
+    private static string? SerializeJson<T>(T? value) where T : class =>
+        value is null ? null : JsonSerializer.Serialize(value);
+
+    private static T? DeserializeJson<T>(string? value) where T : class
+    {
+        if (string.IsNullOrWhiteSpace(value)) return null;
+
+        try
+        {
+            return JsonSerializer.Deserialize<T>(value);
+        }
+        catch (JsonException)
+        {
+            return null;
+        }
     }
 }

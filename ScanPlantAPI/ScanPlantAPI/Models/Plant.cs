@@ -27,6 +27,25 @@ public class Plant
     public string? WikiDescription { get; set; }
     public string? CareInstructions { get; set; }
 
+    [MaxLength(40)]
+    public string? ToxicityStatus { get; set; }
+    public string? ToxicityNote { get; set; }
+
+    [MaxLength(40)]
+    public string? EdibilityStatus { get; set; }
+    public string? EdibilityNote { get; set; }
+    public string? EdiblePartsJson { get; set; }
+
+    [MaxLength(40)]
+    public string? LegalStatus { get; set; }
+    public string? LegalNote { get; set; }
+
+    [MaxLength(80)]
+    public string? SafetyAssessmentOrigin { get; set; }
+    public DateTimeOffset? SafetyAssessedAt { get; set; }
+    public string? SafetySourcesJson { get; set; }
+    public string? SafetyDisclaimer { get; set; }
+
     // Imagens podem ser armazenadas como Base64
     public string? ImageData { get; set; }
     public string? ImageUrl { get; set; }
