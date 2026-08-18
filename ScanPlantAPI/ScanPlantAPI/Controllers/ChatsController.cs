@@ -10,6 +10,7 @@ namespace ScanPlantAPI.Controllers;
 
 [ApiController]
 [Route("api/[controller]")]
+// Todo chat exige autenticacao; cada operacao sensivel tambem verifica participacao.
 [Authorize]
 public class ChatsController : ControllerBase
 {
@@ -102,7 +103,7 @@ public class ChatsController : ControllerBase
             return NotFound(new { message = "Chat não encontrado" });
         }
 
-        // Verificar se o usuário é participante
+        // Autorizacao em nivel de objeto: conhecer o GUID do chat nao concede acesso.
         if (!chat.Participants.Any(participant => participant.UserId == currentUserId))
         {
             return Forbid();
@@ -153,6 +154,7 @@ public class ChatsController : ControllerBase
         if (string.IsNullOrEmpty(currentUserId) ||
             !await _context.ChatParticipants.AnyAsync(p => p.ChatId == id && p.UserId == currentUserId))
         {
+            // Evita que um usuario marque ou consulte conversas das quais nao participa.
             return Forbid();
         }
 

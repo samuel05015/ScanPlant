@@ -84,7 +84,10 @@ export default function LoginScreen() {
             </label>
 
             <label className="block">
-              <span className="block text-sm font-bold text-[var(--color-text-primary)] mb-2">Senha</span>
+              <span className="mb-2 flex items-center justify-between gap-3">
+                <span className="text-sm font-bold text-[var(--color-text-primary)]">Senha</span>
+                <Link to="/forgot-password" className="text-xs font-extrabold text-[var(--color-primary-700)] hover:underline">Esqueci minha senha</Link>
+              </span>
               <span className="relative block">
                 <LockKeyhole size={19} className="form-field-icon" aria-hidden="true" />
                 <input

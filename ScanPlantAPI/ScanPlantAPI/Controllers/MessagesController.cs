@@ -27,6 +27,7 @@ public class MessagesController : ControllerBase
     /// Enviar mensagem
     /// </summary>
     [HttpPost]
+    // Protege disponibilidade e reduz spam por usuario/IP.
     [EnableRateLimiting("messages")]
     [ProducesResponseType(typeof(MessageDto), StatusCodes.Status201Created)]
     public async Task<ActionResult<MessageDto>> SendMessage([FromBody] CreateMessageDto dto)
@@ -43,6 +44,7 @@ public class MessagesController : ControllerBase
             return NotFound(new { message = "Chat não encontrado" });
         }
 
+        // O remetente vem do JWT e precisa pertencer ao chat; nao confiamos em SenderId do body.
         if (!await IsParticipantAsync(dto.ChatId, currentUserId))
         {
             return Forbid();
@@ -54,6 +56,8 @@ public class MessagesController : ControllerBase
             return BadRequest(new { message = "A mensagem não pode estar vazia." });
         }
 
+        // Moderacao e uma regra de seguranca de conteudo; ela complementa a
+        // autenticacao, mas nao substitui a verificacao de participante acima.
         var moderation = _contentSafety.EvaluateCommunityMessage(content);
         if (!moderation.Allowed)
         {
@@ -173,6 +177,7 @@ public class MessagesController : ControllerBase
     }
 
     private Task<bool> IsParticipantAsync(Guid chatId, string userId) =>
+        // Consulta parametrizada pelo EF Core: evita SQL montado manualmente.
         _context.ChatParticipants.AnyAsync(p => p.ChatId == chatId && p.UserId == userId);
 
     private static MessageDto MapToDto(Message message)

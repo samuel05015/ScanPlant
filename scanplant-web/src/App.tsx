@@ -4,6 +4,8 @@ import LoadingScreen from './pages/LoadingScreen';
 import ScreenPasso from './pages/ScreenPasso';
 import LoginScreen from './pages/LoginScreen';
 import RegisterScreen from './pages/RegisterScreen';
+import ForgotPasswordScreen from './pages/ForgotPasswordScreen';
+import ResetPasswordScreen from './pages/ResetPasswordScreen';
 import HomeScreen from './pages/HomeScreen';
 import PhotoScreen from './pages/PhotoScreen';
 import PlantGallery from './pages/PlantGallery';
@@ -101,6 +103,8 @@ function App() {
           <Route path="/instructions" element={<ScreenPasso />} />
           <Route path="/login" element={<LoginScreen />} />
           <Route path="/register" element={<RegisterScreen />} />
+          <Route path="/forgot-password" element={<ForgotPasswordScreen />} />
+          <Route path="/reset-password" element={<ResetPasswordScreen />} />
           
           <Route path="/" element={
             <ProtectedRoute>

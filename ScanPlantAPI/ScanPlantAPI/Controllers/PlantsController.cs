@@ -10,6 +10,7 @@ namespace ScanPlantAPI.Controllers;
 
 [ApiController]
 [Route("api/[controller]")]
+// Exige JWT valido para todos os endpoints deste controller.
 [Authorize]
 public class PlantsController : ControllerBase
 {
@@ -28,6 +29,7 @@ public class PlantsController : ControllerBase
     [ProducesResponseType(StatusCodes.Status400BadRequest)]
     public async Task<ActionResult<PlantDto>> CreatePlant([FromBody] CreatePlantDto dto)
     {
+        // A propriedade e definida pelo claim assinado, nunca por um UserId do body.
         var userId = User.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)?.Value;
         if (string.IsNullOrEmpty(userId))
         {
@@ -87,6 +89,9 @@ public class PlantsController : ControllerBase
     [ProducesResponseType(StatusCodes.Status404NotFound)]
     public async Task<ActionResult<PlantDto>> GetPlantById(Guid id)
     {
+        // PENDENCIA DE SEGURANCA: restringir a leitura ao dono ou a plantas da
+        // comunidade. Hoje outro usuario autenticado que descubra o GUID consegue
+        // ler o registro, inclusive campos de localizacao.
         var plant = await _context.Plants.FindAsync(id);
         if (plant == null)
         {
@@ -160,6 +165,8 @@ public class PlantsController : ControllerBase
     [ProducesResponseType(typeof(List<PlantDto>), StatusCodes.Status200OK)]
     public async Task<ActionResult<List<PlantDto>>> GetUserPlants(string userId)
     {
+        // PENDENCIA DE PRIVACIDADE: filtrar IsInCommunity quando o userId consultado
+        // nao for o proprio usuario autenticado.
         var plants = await _context.Plants
             .Where(p => p.UserId == userId)
             .OrderByDescending(p => p.CreatedAt)
@@ -186,7 +193,7 @@ public class PlantsController : ControllerBase
             return NotFound(new { message = "Planta não encontrada" });
         }
 
-        // Verificar se o usuário é o dono da planta
+        // Autorizacao em nivel de objeto: estar logado nao basta; so o dono altera.
         if (plant.UserId != userId)
         {
             return Forbid();
@@ -248,7 +255,7 @@ public class PlantsController : ControllerBase
             return NotFound(new { message = "Planta não encontrada" });
         }
 
-        // Verificar se o usuário é o dono da planta
+        // Autorizacao em nivel de objeto: impede exclusao por troca do GUID na URL.
         if (plant.UserId != userId)
         {
             return Forbid();
@@ -283,6 +290,8 @@ public class PlantsController : ControllerBase
     [ProducesResponseType(StatusCodes.Status200OK)]
     public async Task<IActionResult> TransferOrphanedPlants()
     {
+        // PENDENCIA DE SEGURANCA: este endpoint e de migracao. Em producao deve ser
+        // removido ou protegido por uma role administrativa para evitar apropriacao.
         var userId = User.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)?.Value;
 
         var orphanedPlants = await _context.Plants

@@ -11,6 +11,8 @@ namespace ScanPlantAPI.Controllers;
 
 [ApiController]
 [Route("api/plant-identification")]
+// O proxy autenticado esconde a chave Plant.id do navegador e impede uso anonimo da cota.
+// PENDENCIA: adicionar rate limiting especifico para controlar tambem usuarios autenticados.
 [Authorize]
 public class PlantIdentificationController : ControllerBase
 {
@@ -37,6 +39,8 @@ public class PlantIdentificationController : ControllerBase
     }
 
     [HttpPost]
+    // Duplo limite: tamanho HTTP total e comprimento da imagem codificada. Isso reduz
+    // risco de esgotamento de memoria por uploads excessivos.
     [RequestSizeLimit(12 * 1024 * 1024)]
     public async Task<IActionResult> Identify(
         [FromBody] IdentifyPlantRequest request,
@@ -52,6 +56,7 @@ public class PlantIdentificationController : ControllerBase
             return BadRequest(new { message = "A imagem excede o limite de 10 MB." });
         }
 
+        // A chave e lida somente no servidor e enviada diretamente ao provedor externo.
         var apiKey = _configuration["PlantId:ApiKey"];
         if (string.IsNullOrWhiteSpace(apiKey))
         {
@@ -85,6 +90,7 @@ public class PlantIdentificationController : ControllerBase
                 return Content(enrichedResponse, "application/json", Encoding.UTF8);
             }
 
+            // O corpo do provedor nao e logado para evitar registrar imagens ou dados do usuario.
             _logger.LogWarning(
                 "Plant.id respondeu com status {StatusCode}.",
                 (int)response.StatusCode);

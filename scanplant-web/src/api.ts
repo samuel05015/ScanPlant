@@ -18,6 +18,8 @@ const getApiErrorMessage = (data: any, status: number) => {
 };
 
 const isTokenExpired = (token: string) => {
+  // Esta leitura melhora a UX, mas nao autentica o usuario: somente a API valida
+  // assinatura, emissor, audiencia e expiracao do JWT.
   try {
     const payload = token.split('.')[1];
     if (!payload) return true;
@@ -31,6 +33,8 @@ const isTokenExpired = (token: string) => {
 
 export const saveToken = (token: string) => {
   try {
+    // sessionStorage reduz a persistencia do token ao fechar a aba. Ainda exige
+    // protecao forte contra XSS, fornecida principalmente pela CSP do deploy.
     sessionStorage.setItem(TOKEN_KEY, token);
     localStorage.removeItem(TOKEN_KEY);
   } catch (error) {
@@ -87,6 +91,8 @@ const apiRequest = async (endpoint: string, options: RequestInit = {}) => {
   };
 
   if (token) {
+    // O token segue no header padrao; IDs enviados no body nunca substituem a
+    // identidade extraida e validada pelo backend.
     headers['Authorization'] = `Bearer ${token}`;
   }
 
@@ -113,6 +119,7 @@ const apiRequest = async (endpoint: string, options: RequestInit = {}) => {
     }
 
     if (!response.ok) {
+      // Remove credencial invalida/expirada para nao reutiliza-la em novas chamadas.
       if (response.status === 401) removeToken();
       const errorMessage = getApiErrorMessage(data, response.status);
       return { data: null, error: { message: errorMessage, status: response.status, details: data } };
@@ -163,6 +170,20 @@ export const auth = {
       }
     }
     return { data, error };
+  },
+
+  requestPasswordReset: async (email: string) => {
+    return await apiRequest('/auth/forgot-password', {
+      method: 'POST',
+      body: JSON.stringify({ email }),
+    });
+  },
+
+  resetPassword: async (email: string, token: string, newPassword: string) => {
+    return await apiRequest('/auth/reset-password', {
+      method: 'POST',
+      body: JSON.stringify({ email, token, newPassword }),
+    });
   },
 
   signOut: async () => {

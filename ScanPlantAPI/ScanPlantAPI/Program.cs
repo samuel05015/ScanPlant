@@ -26,7 +26,17 @@ builder.Services.AddHttpClient("Gemini", client =>
     client.BaseAddress = new Uri("https://generativelanguage.googleapis.com/v1beta/");
     client.Timeout = TimeSpan.FromSeconds(25);
 });
+builder.Services.AddHttpClient("Resend", client =>
+{
+    client.BaseAddress = new Uri("https://api.resend.com/");
+    client.Timeout = TimeSpan.FromSeconds(15);
+    client.DefaultRequestHeaders.UserAgent.ParseAdd("ScanPlantAPI/1.0");
+});
 builder.Services.AddMemoryCache();
+
+// SEGURANCA (disponibilidade): limita abuso, forca bruta e spam nos endpoints
+// protegidos. A particao por IP protege login/cadastro; depois do login,
+// assistente e mensagens sao limitados por usuario autenticado.
 builder.Services.AddRateLimiter(options =>
 {
     options.RejectionStatusCode = StatusCodes.Status429TooManyRequests;
@@ -107,6 +117,8 @@ builder.Services.AddSwaggerGen(options =>
     });
 });
 
+// SEGURANCA (segredos): a string real vem da configuracao protegida do ambiente
+// (Azure/variavel DATABASE_URL), nunca do frontend. O valor nao deve ser logado.
 // Configure Database - PostgreSQL
 var connectionString = builder.Configuration.GetConnectionString("DefaultConnection");
 
@@ -133,6 +145,9 @@ builder.Services.AddDbContext<ApplicationDbContext>(options =>
     options.EnableDetailedErrors(builder.Environment.IsDevelopment());
 });
 
+// SEGURANCA (autenticacao): ASP.NET Identity aplica hash e salt nas senhas; a
+// aplicacao nao armazena nem compara senha em texto puro. A politica abaixo
+// tambem exige senha minimamente forte e bloqueia tentativas repetidas.
 // Configure Identity
 builder.Services.AddIdentity<ApplicationUser, IdentityRole>(options =>
 {
@@ -150,6 +165,15 @@ builder.Services.AddIdentity<ApplicationUser, IdentityRole>(options =>
 .AddEntityFrameworkStores<ApplicationDbContext>()
 .AddDefaultTokenProviders();
 
+// Tokens de redefinicao sao temporarios e deixam de ser validos apos 30 minutos.
+builder.Services.Configure<DataProtectionTokenProviderOptions>(options =>
+{
+    options.TokenLifespan = TimeSpan.FromMinutes(30);
+});
+
+// SEGURANCA (integridade/autenticacao): todo JWT recebido precisa ter assinatura,
+// emissor, audiencia e validade corretos. ClockSkew zero evita aceitar token alem
+// da expiracao. JWT e assinado, nao criptografado: nunca coloque segredos nele.
 // Configure JWT Authentication
 var jwtKey = builder.Configuration["Jwt:Key"];
 if (string.IsNullOrWhiteSpace(jwtKey))
@@ -180,6 +204,9 @@ builder.Services.AddAuthentication(options =>
     };
 });
 
+// SEGURANCA (origem): CORS restringe quais sites podem chamar a API pelo navegador.
+// Ele complementa, mas nao substitui, [Authorize] e as regras de propriedade.
+// Em producao a aplicacao falha ao iniciar se a allowlist nao estiver configurada.
 // Configure CORS. In production, set CORS_ALLOWED_ORIGINS to the frontend URL.
 builder.Services.AddCors(options =>
 {
@@ -213,6 +240,7 @@ builder.Services.AddCors(options =>
 
 // Register Services
 builder.Services.AddScoped<ITokenService, TokenService>();
+builder.Services.AddScoped<IEmailService, ResendEmailService>();
 builder.Services.AddSingleton<IContentSafetyService, ContentSafetyService>();
 builder.Services.AddSingleton<IPlantSafetyEnrichmentService, PlantSafetyEnrichmentService>();
 
@@ -267,9 +295,13 @@ if (app.Environment.IsDevelopment())
 }
 else
 {
+    // HSTS orienta navegadores a reutilizarem HTTPS. No Azure, o TLS e encerrado
+    // pelo proxy da plataforma antes de a requisicao chegar ao container.
     app.UseHsts();
 }
 
+// SEGURANCA (headers): defesa em profundidade contra interpretacao incorreta de
+// conteudo, clickjacking e vazamento da URL de origem para outros sites.
 app.Use(async (context, next) =>
 {
     context.Response.Headers["X-Content-Type-Options"] = "nosniff";
@@ -280,6 +312,8 @@ app.Use(async (context, next) =>
 
 // app.UseHttpsRedirection(); // Desabilitado para desenvolvimento com dispositivos externos
 
+// SEGURANCA: a ordem do pipeline importa. Primeiro aplica a politica de origem,
+// depois valida o JWT, limita a requisicao e finalmente autoriza o endpoint.
 // IMPORTANTE: CORS deve vir ANTES de Authentication/Authorization
 app.UseRouting();
 app.UseCors();
@@ -288,6 +322,8 @@ app.UseRateLimiter();
 app.UseAuthorization();
 
 app.MapControllers();
+// O health check e anonimo de proposito para o monitor da hospedagem. Ele retorna
+// somente estado operacional, sem credenciais, SQL ou detalhes de excecao.
 app.MapGet("/health", async (ApplicationDbContext dbContext, CancellationToken cancellationToken) =>
 {
     var databaseReady = await dbContext.Database.CanConnectAsync(cancellationToken);

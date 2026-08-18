@@ -24,6 +24,8 @@ public enum AssistantSafetyCategory
 
 public sealed class ContentSafetyService : IContentSafetyService
 {
+    // Listas simples e explicaveis para a demonstracao. Em producao, devem ser
+    // complementadas por moderacao mais robusta, auditoria e processo de recurso.
     private static readonly string[] OffensiveTerms =
     [
         "idiota", "imbecil", "otario", "burro", "fdp", "vai se ferrar",
@@ -51,6 +53,7 @@ public sealed class ContentSafetyService : IContentSafetyService
 
     public ContentSafetyResult EvaluateCommunityMessage(string content)
     {
+        // Normalizar antes da comparacao reduz bypass por acentos, caixa e espacos extras.
         var normalized = Normalize(content);
         if (OffensiveTerms.Any(term => normalized.Contains(term, StringComparison.OrdinalIgnoreCase)))
         {
@@ -93,6 +96,7 @@ public sealed class ContentSafetyService : IContentSafetyService
 
     public string Normalize(string content)
     {
+        // Remove marcas diacriticas: "toxico" com ou sem acento passa pela mesma regra.
         var decomposed = content.Trim().ToLowerInvariant().Normalize(NormalizationForm.FormD);
         var builder = new StringBuilder(decomposed.Length);
         foreach (var character in decomposed)

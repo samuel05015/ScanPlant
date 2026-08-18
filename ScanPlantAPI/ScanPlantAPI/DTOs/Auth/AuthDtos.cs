@@ -29,6 +29,30 @@ public class LoginDto
     public string Password { get; set; } = string.Empty;
 }
 
+public class ForgotPasswordDto
+{
+    [Required(ErrorMessage = "Email é obrigatório")]
+    [EmailAddress(ErrorMessage = "Email inválido")]
+    [StringLength(254)]
+    public string Email { get; set; } = string.Empty;
+}
+
+public class ResetPasswordDto
+{
+    [Required(ErrorMessage = "Email é obrigatório")]
+    [EmailAddress(ErrorMessage = "Email inválido")]
+    [StringLength(254)]
+    public string Email { get; set; } = string.Empty;
+
+    [Required(ErrorMessage = "Token é obrigatório")]
+    [StringLength(4096)]
+    public string Token { get; set; } = string.Empty;
+
+    [Required(ErrorMessage = "Nova senha é obrigatória")]
+    [StringLength(100, MinimumLength = 8, ErrorMessage = "A senha deve ter entre 8 e 100 caracteres")]
+    public string NewPassword { get; set; } = string.Empty;
+}
+
 public class AuthResponseDto
 {
     public string Token { get; set; } = string.Empty;
