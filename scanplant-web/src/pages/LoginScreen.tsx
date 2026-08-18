@@ -83,14 +83,12 @@ export default function LoginScreen() {
               </span>
             </label>
 
-            <label className="block">
-              <span className="mb-2 flex items-center justify-between gap-3">
-                <span className="text-sm font-bold text-[var(--color-text-primary)]">Senha</span>
-                <Link to="/forgot-password" className="text-xs font-extrabold text-[var(--color-primary-700)] hover:underline">Esqueci minha senha</Link>
-              </span>
+            <div className="block">
+              <label htmlFor="login-password" className="mb-2 block text-sm font-bold text-[var(--color-text-primary)]">Senha</label>
               <span className="relative block">
                 <LockKeyhole size={19} className="form-field-icon" aria-hidden="true" />
                 <input
+                  id="login-password"
                   type={showPassword ? 'text' : 'password'}
                   className="form-field form-field--start-icon form-field--end-action"
                   placeholder="Sua senha"
@@ -108,7 +106,10 @@ export default function LoginScreen() {
                   {showPassword ? <EyeOff size={19} /> : <Eye size={19} />}
                 </button>
               </span>
-            </label>
+              <div className="mt-2 text-right">
+                <Link to="/forgot-password" className="text-xs font-extrabold text-[var(--color-primary-700)] hover:underline">Esqueci minha senha</Link>
+              </div>
+            </div>
 
             {error && <div role="alert" className="rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-800">{error}</div>}
 

@@ -70,6 +70,55 @@ A API adiciona HSTS (regra que manda o navegador usar somente HTTPS nas próxima
 - O modelo registra a intenção de compartilhar localização em `IsLocationPublic` (campo verdadeiro ou falso para localização pública).
 - Retry de banco (nova tentativa automática após falha temporária), timeouts, health check (rota usada pela hospedagem para verificar se o serviço está funcionando) e respostas `429` (código HTTP para excesso de requisições) ajudam a disponibilidade.
 
+## Onde mostrar cada controle no código
+
+As linhas abaixo correspondem ao estado atual do projeto. Se o código mudar depois, procure também pelo nome da classe ou do método indicado.
+
+### Controles implementados
+
+| Questão de segurança | Onde abrir | O que mostrar ao professor |
+|---|---|---|
+| Hash e salt das senhas | `ScanPlantAPI/ScanPlantAPI/Program.cs:148` e `Controllers/AuthController.cs:71` | O ASP.NET Identity é configurado no servidor e `CreateAsync` recebe a senha para armazená-la com hash; a aplicação não grava senha em texto puro. |
+| Política de senha, email único e bloqueio | `ScanPlantAPI/ScanPlantAPI/Program.cs:152-166` | Requisitos de senha, `RequireUniqueEmail`, cinco falhas e bloqueio de 15 minutos. |
+| Proteção contra força bruta e spam | `ScanPlantAPI/ScanPlantAPI/Program.cs:37-77` e `Controllers/AuthController.cs:49,95,138,183` | Políticas de rate limiting e sua aplicação no cadastro, login e recuperação de senha. |
+| Login sem enumeração de conta | `ScanPlantAPI/ScanPlantAPI/Controllers/AuthController.cs:98-120` | Email inexistente e senha incorreta retornam a mesma mensagem. |
+| Emissão do JWT | `ScanPlantAPI/ScanPlantAPI/Services/TokenService.cs:23-62` | Claim de identidade, validade de duas horas e assinatura HMAC-SHA256. |
+| Validação do JWT | `ScanPlantAPI/ScanPlantAPI/Program.cs:174-205` | Verificação de assinatura, emissor, audiência e expiração com `ClockSkew` igual a zero. |
+| Rotas autenticadas | `ScanPlantAPI/ScanPlantAPI/Controllers/PlantsController.cs:14`, `ChatsController.cs:14` e `MessagesController.cs:14` | O atributo `[Authorize]` bloqueia chamadas sem um JWT válido. |
+| Identidade confiável do usuário | `ScanPlantAPI/ScanPlantAPI/Services/TokenService.cs:36-45` e `Controllers/PlantsController.cs:32-41` | O ID vem do claim assinado; o cliente não escolhe o proprietário de uma planta. |
+| Propriedade para alterar/excluir planta | `ScanPlantAPI/ScanPlantAPI/Controllers/PlantsController.cs:185-199` e `247-261` | A API compara `plant.UserId` com o usuário autenticado e responde `403` quando não é o dono. |
+| Participação em chats e mensagens | `ScanPlantAPI/ScanPlantAPI/Controllers/ChatsController.cs:99-109,146-158` e `MessagesController.cs:97-122,179-181` | A API confirma que o usuário pertence à conversa antes de mostrar chat ou mensagens. |
+| Validação dos dados recebidos | `ScanPlantAPI/ScanPlantAPI/DTOs/Auth/AuthDtos.cs:5-53`, `DTOs/Messages/MessageDtos.cs:7-12` e `DTOs/Plants/PlantDtos.cs` | Atributos como `Required`, `EmailAddress`, `StringLength` e `MaxLength` rejeitam formatos e tamanhos inválidos. |
+| Segredo do banco no servidor | `ScanPlantAPI/ScanPlantAPI/Program.cs:120-145` | A conexão vem da configuração ou de `DATABASE_URL`; logs sensíveis só podem existir em desenvolvimento. |
+| Segredos das APIs externas | `ScanPlantAPI/ScanPlantAPI/Controllers/PlantIdentificationController.cs:59-80`, `Services/PlantSafetyEnrichmentService.cs:107-110` e `Services/EmailService.cs:33-44` | Plant.id, Gemini e Resend são lidos no backend e nunca enviados ao navegador. |
+| Recuperação sem revelar contas | `ScanPlantAPI/ScanPlantAPI/Controllers/AuthController.cs:137-176` | A resposta é sempre genérica e até falhas de email são escondidas do cliente para não confirmar que um endereço está cadastrado. |
+| Token temporário de recuperação | `ScanPlantAPI/ScanPlantAPI/Program.cs:168-172` e `Controllers/AuthController.cs:157-205` | O token expira em 30 minutos, é codificado para URL e validado pelo ASP.NET Identity antes da troca. |
+| Link seguro e chave de email protegida | `ScanPlantAPI/ScanPlantAPI/Controllers/AuthController.cs:387-402` e `Services/EmailService.cs:28-81` | Produção exige URL HTTPS; a chave fica em `RESEND_API_KEY` no Azure e o link é escapado antes de entrar no HTML. |
+| Interface da recuperação | `scanplant-web/src/pages/LoginScreen.tsx:87-111`, `ForgotPasswordScreen.tsx` e `ResetPasswordScreen.tsx` | O link fica abaixo da senha; as telas apenas chamam a API, sem possuir a chave do Resend. |
+| Armazenamento e envio do JWT no navegador | `scanplant-web/src/api.ts:20-39,45-75,93-96` | O frontend detecta expiração para experiência do usuário, guarda o token em `sessionStorage` e o envia no header `Authorization: Bearer`. A validação real continua no backend. |
+| CORS | `ScanPlantAPI/ScanPlantAPI/Program.cs:207-235,315-322` | A allowlist define quais origens podem chamar a API no navegador e é aplicada antes da autenticação. |
+| Headers do navegador | `vercel.json:9-17` e `ScanPlantAPI/ScanPlantAPI/Program.cs:296-310` | CSP, proteção contra iframe, `nosniff`, política de referência e HSTS em produção. |
+| Upload e integrações externas | `ScanPlantAPI/ScanPlantAPI/Controllers/PlantIdentificationController.cs:14-19,41-57,82-120` e `Program.cs:19-33` | Identificação exige login, limita o tamanho da imagem, usa timeout e não devolve nem registra o corpo de erro do provedor. |
+| Segurança de conteúdo | `ScanPlantAPI/ScanPlantAPI/Services/ContentSafetyService.cs:54-94` e `Controllers/PlantAssistantController.cs:22-43` | Bloqueio de abuso e de instruções sobre substâncias controladas, além de orientação conservadora em possível intoxicação. |
+| Privacidade na listagem de usuários | `ScanPlantAPI/ScanPlantAPI/Controllers/AuthController.cs:327-376` | Email e telefone ficam vazios para outros usuários e só aparecem para o próprio dono. |
+| Disponibilidade e monitoramento | `ScanPlantAPI/ScanPlantAPI/Program.cs:137-145,325-341` | Retry do PostgreSQL e rota `/health`, que informa apenas estado operacional. |
+
+### Pendências que o próprio código evidencia
+
+| Limitação conhecida | Onde mostrar no código |
+|---|---|
+| IDOR na leitura direta de planta | `ScanPlantAPI/ScanPlantAPI/Controllers/PlantsController.cs:87-101`; o comentário nas linhas 92-94 explica que ainda falta restringir ao dono ou à comunidade. |
+| Plantas privadas na consulta por usuário | `ScanPlantAPI/ScanPlantAPI/Controllers/PlantsController.cs:164-176`; a consulta ainda não diferencia o próprio usuário de visitantes. |
+| Coordenadas em respostas públicas | `ScanPlantAPI/ScanPlantAPI/Controllers/PlantsController.cs:322-352`; o mapeamento ainda inclui latitude e longitude sem aplicar `IsLocationPublic`. |
+| Transferência de plantas órfãs | `ScanPlantAPI/ScanPlantAPI/Controllers/PlantsController.cs:289-314`; o comentário pede remoção ou role administrativa. |
+| Identificação sem limitador próprio | `ScanPlantAPI/ScanPlantAPI/Controllers/PlantIdentificationController.cs:14-16`; existe autenticação, mas o comentário registra a falta de rate limiting específico. |
+| MIME real da imagem não validado | `ScanPlantAPI/ScanPlantAPI/Controllers/PlantIdentificationController.cs:41-75`; há limite de tamanho, mas não inspeção robusta do tipo real do arquivo. |
+| JWT sem refresh, revogação ou 2FA | `ScanPlantAPI/ScanPlantAPI/Services/TokenService.cs:48-58`; existe apenas token de acesso com duas horas de validade. |
+| Token acessível a JavaScript | `scanplant-web/src/api.ts:34-39`; `sessionStorage` reduz persistência, mas ainda pode ser lido caso ocorra XSS. |
+| CSP com estilo inline | `vercel.json:15`; `style-src` ainda contém `'unsafe-inline'`. |
+| Rate limiting em memória | `ScanPlantAPI/ScanPlantAPI/Program.cs:35-77`; os contadores não são compartilhados entre várias instâncias da API. |
+| Auditoria e testes automatizados de segurança | Não existe implementação específica ainda; por isso aparece como melhoria futura, e não como controle concluído. |
+
 ## Limitações conhecidas
 
 Estas são melhorias futuras, não controles já concluídos:
@@ -94,7 +143,11 @@ O backend usa o Resend (serviço externo de envio de emails). Configure estas va
 - `EMAIL_FROM`: remetente de um domínio verificado, por exemplo `ScanPlant <contato@seudominio.com>`.
 - `FRONTEND_BASE_URL`: endereço público do site, atualmente `https://scan-plant-front-back-end.vercel.app`.
 
+No ambiente de produção atual, as três variáveis estão configuradas no Azure App Service e a recuperação foi testada. O valor de `RESEND_API_KEY` não está no repositório nem no frontend.
+
 Para testes, `onboarding@resend.dev` pode ser usado como remetente, mas normalmente envia apenas para o endereço proprietário da conta Resend. Para usuários reais, é necessário verificar um domínio com SPF e DKIM (registros de DNS que autorizam o envio e ajudam a provar que o email não foi falsificado).
+
+Regra operacional: uma chave secreta nunca deve aparecer em código, commit, slide, captura de tela ou conversa. Se uma chave for exposta, ela deve ser revogada (invalidada no provedor) e substituída no Azure.
 
 ## Roteiro de apresentação em 2 minutos
 
