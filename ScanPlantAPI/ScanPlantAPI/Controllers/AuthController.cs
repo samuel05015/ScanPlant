@@ -19,6 +19,7 @@ public class AuthController : ControllerBase
     private readonly SignInManager<ApplicationUser> _signInManager;
     private readonly ITokenService _tokenService;
     private readonly IEmailService _emailService;
+    private readonly IAdminAccessService _adminAccessService;
     private readonly IConfiguration _configuration;
     private readonly IWebHostEnvironment _environment;
     private readonly ILogger<AuthController> _logger;
@@ -28,6 +29,7 @@ public class AuthController : ControllerBase
         SignInManager<ApplicationUser> signInManager,
         ITokenService tokenService,
         IEmailService emailService,
+        IAdminAccessService adminAccessService,
         IConfiguration configuration,
         IWebHostEnvironment environment,
         ILogger<AuthController> logger)
@@ -36,6 +38,7 @@ public class AuthController : ControllerBase
         _signInManager = signInManager;
         _tokenService = tokenService;
         _emailService = emailService;
+        _adminAccessService = adminAccessService;
         _configuration = configuration;
         _environment = environment;
         _logger = logger;
@@ -75,7 +78,9 @@ public class AuthController : ControllerBase
             return BadRequest(new { errors = result.Errors.Select(e => e.Description) });
         }
 
-        var token = _tokenService.GenerateToken(user);
+        var isAdmin = await _adminAccessService.EnsureAdminAccessAsync(user);
+        var roles = await _userManager.GetRolesAsync(user);
+        var token = _tokenService.GenerateToken(user, roles);
 
         return Ok(new AuthResponseDto
         {
@@ -83,6 +88,7 @@ public class AuthController : ControllerBase
             UserId = user.Id,
             Email = user.Email!,
             Name = user.Name,
+            IsAdmin = isAdmin,
             ExpiresAt = DateTime.UtcNow.AddHours(2)
         });
     }
@@ -119,7 +125,9 @@ public class AuthController : ControllerBase
             return Unauthorized(new { message = "Email ou senha inválidos" });
         }
 
-        var token = _tokenService.GenerateToken(user);
+        var isAdmin = await _adminAccessService.EnsureAdminAccessAsync(user);
+        var roles = await _userManager.GetRolesAsync(user);
+        var token = _tokenService.GenerateToken(user, roles);
 
         return Ok(new AuthResponseDto
         {
@@ -127,6 +135,7 @@ public class AuthController : ControllerBase
             UserId = user.Id,
             Email = user.Email!,
             Name = user.Name,
+            IsAdmin = isAdmin,
             ExpiresAt = DateTime.UtcNow.AddHours(2)
         });
     }
@@ -247,6 +256,8 @@ public class AuthController : ControllerBase
             return NotFound(new { message = "Usuário não encontrado" });
         }
 
+        var isAdmin = await _userManager.IsInRoleAsync(user, AdminAccessService.AdminRole);
+
         return Ok(new UserProfileDto
         {
             Id = user.Id,
@@ -258,6 +269,7 @@ public class AuthController : ControllerBase
             ExperienceLevel = user.ExperienceLevel,
             PlantPreference = user.PlantPreference,
             City = user.City,
+            IsAdmin = isAdmin,
             CreatedAt = user.CreatedAt,
             UpdatedAt = user.UpdatedAt
         });
@@ -302,6 +314,8 @@ public class AuthController : ControllerBase
             return BadRequest(new { errors = result.Errors.Select(e => e.Description) });
         }
 
+        var isAdmin = await _userManager.IsInRoleAsync(user, AdminAccessService.AdminRole);
+
         return Ok(new UserProfileDto
         {
             Id = user.Id,
@@ -313,6 +327,7 @@ public class AuthController : ControllerBase
             ExperienceLevel = user.ExperienceLevel,
             PlantPreference = user.PlantPreference,
             City = user.City,
+            IsAdmin = isAdmin,
             CreatedAt = user.CreatedAt,
             UpdatedAt = user.UpdatedAt
         });

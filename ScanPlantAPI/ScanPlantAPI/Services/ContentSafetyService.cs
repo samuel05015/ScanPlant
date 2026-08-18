@@ -11,7 +11,11 @@ public interface IContentSafetyService
     string Normalize(string content);
 }
 
-public sealed record ContentSafetyResult(bool Allowed, string? Message = null);
+public sealed record ContentSafetyResult(
+    bool Allowed,
+    string? Message = null,
+    string Category = "allowed",
+    string Severity = "low");
 
 public enum AssistantSafetyCategory
 {
@@ -57,13 +61,21 @@ public sealed class ContentSafetyService : IContentSafetyService
         var normalized = Normalize(content);
         if (OffensiveTerms.Any(term => normalized.Contains(term, StringComparison.OrdinalIgnoreCase)))
         {
-            return new(false, "Sua mensagem contém linguagem ofensiva. Reformule com respeito.");
+            return new(
+                false,
+                "Sua mensagem contém linguagem ofensiva. Reformule com respeito.",
+                "abuse",
+                "high");
         }
 
         if (ControlledPlants.Any(term => normalized.Contains(term, StringComparison.OrdinalIgnoreCase))
             && OperationalDrugTerms.Any(term => normalized.Contains(term, StringComparison.OrdinalIgnoreCase)))
         {
-            return new(false, "Não é permitido negociar ou ensinar a produzir substâncias controladas.");
+            return new(
+                false,
+                "Não é permitido negociar ou ensinar a produzir substâncias controladas.",
+                "controlled_substance",
+                "critical");
         }
 
         return new(true);

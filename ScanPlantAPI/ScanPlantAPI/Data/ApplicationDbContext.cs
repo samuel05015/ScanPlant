@@ -15,6 +15,7 @@ public class ApplicationDbContext : IdentityDbContext<ApplicationUser>
     public DbSet<Chat> Chats { get; set; }
     public DbSet<ChatParticipant> ChatParticipants { get; set; }
     public DbSet<Message> Messages { get; set; }
+    public DbSet<ModerationEvent> ModerationEvents { get; set; }
 
     protected override void OnModelCreating(ModelBuilder builder)
     {
@@ -51,6 +52,12 @@ public class ApplicationDbContext : IdentityDbContext<ApplicationUser>
             .HasForeignKey(m => m.SenderId)
             .OnDelete(DeleteBehavior.Cascade);
 
+        builder.Entity<ModerationEvent>()
+            .HasOne(e => e.User)
+            .WithMany(u => u.ModerationEvents)
+            .HasForeignKey(e => e.UserId)
+            .OnDelete(DeleteBehavior.Cascade);
+
         // Índices para melhor performance
         builder.Entity<Plant>()
             .HasIndex(p => p.UserId);
@@ -67,5 +74,11 @@ public class ApplicationDbContext : IdentityDbContext<ApplicationUser>
 
         builder.Entity<Message>()
             .HasIndex(m => m.CreatedAt);
+
+        builder.Entity<ModerationEvent>()
+            .HasIndex(e => new { e.Status, e.CreatedAt });
+
+        builder.Entity<ModerationEvent>()
+            .HasIndex(e => new { e.UserId, e.CreatedAt });
     }
 }

@@ -241,6 +241,7 @@ builder.Services.AddCors(options =>
 // Register Services
 builder.Services.AddScoped<ITokenService, TokenService>();
 builder.Services.AddScoped<IEmailService, ResendEmailService>();
+builder.Services.AddScoped<IAdminAccessService, AdminAccessService>();
 builder.Services.AddSingleton<IContentSafetyService, ContentSafetyService>();
 builder.Services.AddSingleton<IPlantSafetyEnrichmentService, PlantSafetyEnrichmentService>();
 

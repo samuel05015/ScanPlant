@@ -17,14 +17,50 @@ import PlantDetailScreen from './pages/PlantDetailScreen';
 import UserListScreen from './pages/UserListScreen';
 import PlantAssistantChat from './pages/PlantAssistantChat';
 import FavoritesScreen from './pages/FavoritesScreen';
+import AdminDashboardScreen from './pages/AdminDashboardScreen';
 import AppNavigation from './components/AppNavigation';
-import { getToken } from './api';
+import { auth, getToken } from './api';
 
 const ProtectedRoute = ({ children }: { children: React.ReactNode }) => {
   const token = getToken();
   if (!token) {
     return <Navigate to="/login" replace />;
   }
+  return (
+    <div className="app-shell">
+      <AppNavigation />
+      <main className="app-content">{children}</main>
+    </div>
+  );
+};
+
+const AdminRoute = ({ children }: { children: React.ReactNode }) => {
+  const [checking, setChecking] = useState(true);
+  const [allowed, setAllowed] = useState(false);
+  const token = getToken();
+
+  useEffect(() => {
+    if (!token) {
+      setChecking(false);
+      return;
+    }
+
+    let active = true;
+    auth.getCurrentUser().then(({ data, error }) => {
+      if (!active) return;
+      setAllowed(!error && Boolean(data?.user?.isAdmin));
+      setChecking(false);
+    });
+
+    return () => {
+      active = false;
+    };
+  }, [token]);
+
+  if (!token) return <Navigate to="/login" replace />;
+  if (checking) return <div className="grid min-h-screen place-items-center text-sm font-bold text-[var(--color-text-secondary)]">Verificando acesso administrativo...</div>;
+  if (!allowed) return <Navigate to="/" replace />;
+
   return (
     <div className="app-shell">
       <AppNavigation />
@@ -169,6 +205,12 @@ function App() {
             <ProtectedRoute>
               <PlantAssistantChat />
             </ProtectedRoute>
+          } />
+
+          <Route path="/admin" element={
+            <AdminRoute>
+              <AdminDashboardScreen />
+            </AdminRoute>
           } />
 
           <Route path="*" element={<Navigate to="/" replace />} />

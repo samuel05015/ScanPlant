@@ -29,11 +29,15 @@ export default function RegisterScreen() {
     setLoading(true);
     setError('');
     try {
-      const { error: apiError } = await auth.signUp(email.trim(), password, name.trim());
+      const { data, error: apiError } = await auth.signUp(email.trim(), password, name.trim());
       if (apiError) {
         setError(apiError.status === 429
           ? 'Muitas tentativas. Aguarde alguns minutos.'
           : 'Não foi possível criar a conta. Revise os dados ou use outro e-mail.');
+        return;
+      }
+      if (data?.isAdmin) {
+        navigate('/admin', { replace: true });
         return;
       }
       navigate('/instructions', { replace: true });

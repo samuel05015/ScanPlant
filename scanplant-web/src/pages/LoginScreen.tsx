@@ -20,11 +20,16 @@ export default function LoginScreen() {
     setError('');
 
     try {
-      const { error: apiError } = await auth.signIn(email.trim(), password);
+      const { data, error: apiError } = await auth.signIn(email.trim(), password);
       if (apiError) {
         setError(apiError.status === 429
           ? 'Muitas tentativas. Aguarde alguns minutos e tente novamente.'
           : 'Não foi possível entrar. Confira os dados e tente novamente.');
+        return;
+      }
+
+      if (data?.isAdmin) {
+        navigate('/admin', { replace: true });
         return;
       }
 

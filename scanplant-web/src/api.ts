@@ -2,6 +2,7 @@
 import { API_CONFIG } from './apiConfig';
 
 const TOKEN_KEY = '@scanplant_token';
+const ADMIN_KEY = '@scanplant_is_admin';
 
 const getApiErrorMessage = (data: any, status: number) => {
   const validationErrors = data?.errors;
@@ -73,8 +74,28 @@ export const removeToken = () => {
   try {
     localStorage.removeItem(TOKEN_KEY);
     sessionStorage.removeItem(TOKEN_KEY);
+    localStorage.removeItem(ADMIN_KEY);
+    sessionStorage.removeItem(ADMIN_KEY);
   } catch (error) {
     console.error('Erro ao remover token:', error);
+  }
+};
+
+export const setAdminSession = (isAdmin: boolean) => {
+  try {
+    if (isAdmin) sessionStorage.setItem(ADMIN_KEY, 'true');
+    else sessionStorage.removeItem(ADMIN_KEY);
+    localStorage.removeItem(ADMIN_KEY);
+  } catch (error) {
+    console.error('Erro ao salvar permissao administrativa:', error);
+  }
+};
+
+export const isAdminSession = () => {
+  try {
+    return sessionStorage.getItem(ADMIN_KEY) === 'true';
+  } catch {
+    return false;
   }
 };
 
@@ -152,7 +173,10 @@ export const auth = {
       method: 'POST',
       body: JSON.stringify({ email, password, name }),
     });
-    if (data?.token) saveToken(data.token);
+    if (data?.token) {
+      saveToken(data.token);
+      setAdminSession(Boolean(data.isAdmin));
+    }
     return { data, error };
   },
 
@@ -163,6 +187,7 @@ export const auth = {
     });
     if (data?.token) {
       saveToken(data.token);
+      setAdminSession(Boolean(data.isAdmin));
       // Marcar que o usuário fez login pela primeira vez
       const hasSeenInstructions = localStorage.getItem('@scanplant_seen_instructions');
       if (!hasSeenInstructions) {
@@ -195,6 +220,7 @@ export const auth = {
     const token = getToken();
     if (!token) return { data: null, error: { message: 'Não autenticado' } };
     const { data, error } = await apiRequest('/auth/me', { method: 'GET' });
+    if (data) setAdminSession(Boolean(data.isAdmin));
     return { data: { user: data }, error };
   },
 
@@ -379,6 +405,37 @@ export const messages = {
   list: async (chatId) => {
     return await apiRequest(`/messages/chat/${chatId}`, { method: 'GET' });
   },
+};
+
+export const admin = {
+  getOverview: async () => apiRequest('/admin/overview', { method: 'GET' }),
+
+  getAlerts: async (status = 'open') => apiRequest(
+    `/admin/alerts?status=${encodeURIComponent(status)}&limit=200`,
+    { method: 'GET' },
+  ),
+
+  reviewAlert: async (id: string, status: 'reviewed' | 'dismissed' | 'escalated', note = '') =>
+    apiRequest(`/admin/alerts/${encodeURIComponent(id)}`, {
+      method: 'PUT',
+      body: JSON.stringify({ status, note }),
+    }),
+
+  getUsers: async (search = '') => apiRequest(
+    `/admin/users${search ? `?search=${encodeURIComponent(search)}` : ''}`,
+    { method: 'GET' },
+  ),
+
+  setUserLock: async (id: string, locked: boolean, hours = 24) =>
+    apiRequest(`/admin/users/${encodeURIComponent(id)}/lock`, {
+      method: 'PUT',
+      body: JSON.stringify({ locked, hours }),
+    }),
+
+  getMessages: async (userId = '') => apiRequest(
+    `/admin/messages${userId ? `?userId=${encodeURIComponent(userId)}` : ''}`,
+    { method: 'GET' },
+  ),
 };
 
 // Supabase-like wrapper for compatibility

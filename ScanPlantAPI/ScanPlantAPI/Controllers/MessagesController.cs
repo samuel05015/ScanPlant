@@ -61,6 +61,19 @@ public class MessagesController : ControllerBase
         var moderation = _contentSafety.EvaluateCommunityMessage(content);
         if (!moderation.Allowed)
         {
+            _context.ModerationEvents.Add(new ModerationEvent
+            {
+                UserId = currentUserId,
+                Source = "chat",
+                Category = moderation.Category,
+                Severity = moderation.Severity,
+                Action = "blocked",
+                Status = "open",
+                Content = content,
+                Reason = moderation.Message,
+                ChatId = dto.ChatId
+            });
+            await _context.SaveChangesAsync();
             return BadRequest(new { message = moderation.Message });
         }
 

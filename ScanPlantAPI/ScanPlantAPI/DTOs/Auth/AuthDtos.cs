@@ -59,6 +59,7 @@ public class AuthResponseDto
     public string UserId { get; set; } = string.Empty;
     public string Email { get; set; } = string.Empty;
     public string? Name { get; set; }
+    public bool IsAdmin { get; set; }
     public DateTime ExpiresAt { get; set; }
 }
 
@@ -94,6 +95,7 @@ public class UserProfileDto
     public string? ExperienceLevel { get; set; }
     public string? PlantPreference { get; set; }
     public string? City { get; set; }
+    public bool IsAdmin { get; set; }
     public DateTime CreatedAt { get; set; }
     public DateTime UpdatedAt { get; set; }
 }

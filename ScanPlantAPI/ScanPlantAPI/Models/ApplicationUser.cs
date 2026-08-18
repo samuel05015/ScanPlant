@@ -18,4 +18,5 @@ public class ApplicationUser : IdentityUser
     public virtual ICollection<Plant> Plants { get; set; } = new List<Plant>();
     public virtual ICollection<Message> Messages { get; set; } = new List<Message>();
     public virtual ICollection<ChatParticipant> ChatParticipants { get; set; } = new List<ChatParticipant>();
+    public virtual ICollection<ModerationEvent> ModerationEvents { get; set; } = new List<ModerationEvent>();
 }

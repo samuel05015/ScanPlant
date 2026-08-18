@@ -8,9 +8,10 @@ import {
   MessageCircle,
   Search,
   Settings,
+  ShieldAlert,
   Sprout,
 } from 'lucide-react';
-import { auth } from '../api';
+import { auth, isAdminSession } from '../api';
 import BrandLogo from './BrandLogo';
 
 const primaryItems = [
@@ -33,6 +34,13 @@ const desktopItems = [
 
 const AppNavigation = () => {
   const navigate = useNavigate();
+  const isAdmin = isAdminSession();
+  const visibleDesktopItems = isAdmin
+    ? [...desktopItems, { to: '/admin', label: 'Administração', Icon: ShieldAlert, primary: false }]
+    : desktopItems;
+  const visiblePrimaryItems = isAdmin
+    ? [...primaryItems, { to: '/admin', label: 'Admin', Icon: ShieldAlert, primary: false }]
+    : primaryItems;
 
   const signOut = async () => {
     await auth.signOut();
@@ -47,7 +55,7 @@ const AppNavigation = () => {
         </button>
 
         <nav className="sidebar-nav">
-          {desktopItems.map(({ to, label, Icon }) => (
+          {visibleDesktopItems.map(({ to, label, Icon }) => (
             <NavLink
               key={`${to}-${label}`}
               to={to}
@@ -71,8 +79,12 @@ const AppNavigation = () => {
         </div>
       </aside>
 
-      <nav className="mobile-nav" aria-label="Navegação principal móvel">
-        {primaryItems.map(({ to, label, Icon, primary }) => (
+      <nav
+        className="mobile-nav"
+        aria-label="Navegação principal móvel"
+        style={{ gridTemplateColumns: `repeat(${visiblePrimaryItems.length}, minmax(0, 1fr))` }}
+      >
+        {visiblePrimaryItems.map(({ to, label, Icon, primary }) => (
           <NavLink
             key={to}
             to={to}

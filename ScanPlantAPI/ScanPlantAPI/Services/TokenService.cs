@@ -8,7 +8,7 @@ namespace ScanPlantAPI.Services;
 
 public interface ITokenService
 {
-    string GenerateToken(ApplicationUser user);
+    string GenerateToken(ApplicationUser user, IEnumerable<string>? roles = null);
 }
 
 public class TokenService : ITokenService
@@ -20,7 +20,7 @@ public class TokenService : ITokenService
         _configuration = configuration;
     }
 
-    public string GenerateToken(ApplicationUser user)
+    public string GenerateToken(ApplicationUser user, IEnumerable<string>? roles = null)
     {
         // A chave de assinatura fica no backend. Se ela nao estiver configurada,
         // falhar e mais seguro do que emitir tokens com uma chave padrao.
@@ -44,6 +44,11 @@ public class TokenService : ITokenService
             // lista de revogacao/auditoria.
             new(JwtRegisteredClaimNames.Jti, Guid.NewGuid().ToString())
         };
+
+        foreach (var role in roles ?? [])
+        {
+            claims.Add(new Claim(ClaimTypes.Role, role));
+        }
 
         var tokenDescriptor = new SecurityTokenDescriptor
         {

@@ -2,6 +2,9 @@ using System.ComponentModel.DataAnnotations;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.RateLimiting;
+using System.Security.Claims;
+using ScanPlantAPI.Data;
+using ScanPlantAPI.Models;
 using ScanPlantAPI.Services;
 
 namespace ScanPlantAPI.Controllers;
@@ -13,14 +16,20 @@ namespace ScanPlantAPI.Controllers;
 public class PlantAssistantController : ControllerBase
 {
     private readonly IContentSafetyService _contentSafety;
+    private readonly ApplicationDbContext _context;
 
-    public PlantAssistantController(IContentSafetyService contentSafety)
+    public PlantAssistantController(
+        IContentSafetyService contentSafety,
+        ApplicationDbContext context)
     {
         _contentSafety = contentSafety;
+        _context = context;
     }
 
     [HttpPost]
-    public ActionResult Ask([FromBody] PlantAssistantRequest request)
+    public async Task<ActionResult> Ask(
+        [FromBody] PlantAssistantRequest request,
+        CancellationToken cancellationToken)
     {
         var question = request.Question.Trim();
         var category = _contentSafety.ClassifyAssistantQuestion(question);
@@ -42,6 +51,34 @@ public class PlantAssistantController : ControllerBase
                 "scope"),
             _ => BuildBotanicalResponse(normalized)
         };
+
+        if (category != AssistantSafetyCategory.Botanical)
+        {
+            var userId = User.FindFirstValue(ClaimTypes.NameIdentifier);
+            if (!string.IsNullOrWhiteSpace(userId))
+            {
+                var (severity, action) = category switch
+                {
+                    AssistantSafetyCategory.ControlledSubstance => ("critical", "blocked"),
+                    AssistantSafetyCategory.Abuse => ("high", "redirected"),
+                    AssistantSafetyCategory.DangerousIngestion => ("high", "safety_guidance"),
+                    _ => ("low", "redirected")
+                };
+
+                _context.ModerationEvents.Add(new ModerationEvent
+                {
+                    UserId = userId,
+                    Source = "assistant",
+                    Category = category.ToString().ToLowerInvariant(),
+                    Severity = severity,
+                    Action = action,
+                    Status = "open",
+                    Content = question,
+                    Reason = response.Message
+                });
+                await _context.SaveChangesAsync(cancellationToken);
+            }
+        }
 
         return Ok(response);
     }
